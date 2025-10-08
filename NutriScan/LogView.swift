@@ -18,12 +18,19 @@ struct LogView: View {
     
     @State private var showingAddSheet = false
     @State private var searchText = ""
+    @State private var selectedDate = Date()
+    @State private var showingDatePicker = false
     
     var filteredEntries: [FoodEntry] {
+        let entries = foodEntries.filter { entry in
+            guard let entryDate = entry.date else { return false }
+            return Calendar.current.isDate(entryDate, inSameDayAs: selectedDate)
+        }
+        
         if searchText.isEmpty {
-            return Array(foodEntries)
+            return Array(entries)
         } else {
-            return foodEntries.filter { entry in
+            return entries.filter { entry in
                 entry.name?.localizedCaseInsensitiveContains(searchText) ?? false
             }
         }
@@ -32,15 +39,19 @@ struct LogView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                if foodEntries.isEmpty {
+                if filteredEntries.isEmpty {
                     emptyStateView
                 } else {
                     logListView
                 }
             }
             .navigationTitle("Food Log")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    navBarDatePicker
+                }
+                
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: { showingAddSheet = true }) {
                         Label("Add", systemImage: "plus")
@@ -52,8 +63,74 @@ struct LogView: View {
                 }
             }
             .sheet(isPresented: $showingAddSheet) {
-                AddFoodEntryView()
+                AddFoodEntryView(selectedDate: $selectedDate)
                     .environment(\.managedObjectContext, viewContext)
+            }
+            .sheet(isPresented: $showingDatePicker) {
+                datePickerSheet
+            }
+        }
+    }
+    
+    // MARK: - Navigation Bar Date Picker
+    private var navBarDatePicker: some View {
+        HStack(spacing: 12) {
+            // Previous day button
+            Button(action: goToPreviousDay) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.accentColor)
+            }
+            
+            // Date display
+            Button(action: { showingDatePicker = true }) {
+                VStack(spacing: 1) {
+                    Text(selectedDate, style: .date)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.primary)
+                    
+                    Text(dateStatusText)
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            // Next day button
+            Button(action: goToNextDay) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.accentColor)
+            }
+        }
+    }
+    
+    private var datePickerSheet: some View {
+        NavigationView {
+            VStack {
+                DatePicker(
+                    "Select Date",
+                    selection: $selectedDate,
+                    displayedComponents: [.date]
+                )
+                .datePickerStyle(GraphicalDatePickerStyle())
+                .padding()
+                
+                Spacer()
+            }
+            .navigationTitle("Select Date")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        showingDatePicker = false
+                    }
+                }
+                
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        showingDatePicker = false
+                    }
+                }
             }
         }
     }
@@ -68,7 +145,7 @@ struct LogView: View {
                 .font(.title2)
                 .fontWeight(.semibold)
             
-            Text("Tap the + button to add your first food entry")
+            Text("Tap the + button to add your first food entry for \(selectedDate, formatter: dateFormatter)")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
@@ -109,18 +186,13 @@ struct LogView: View {
     }
     
     private var todaysTotalView: some View {
-        let todaysEntries = foodEntries.filter { entry in
-            guard let date = entry.date else { return false }
-            return Calendar.current.isDateInToday(date)
-        }
-        
-        let totalCalories = todaysEntries.reduce(0) { $0 + $1.calories }
-        let totalProtein = todaysEntries.reduce(0) { $0 + $1.protein }
-        let totalCarbs = todaysEntries.reduce(0) { $0 + $1.carbs }
-        let totalFat = todaysEntries.reduce(0) { $0 + $1.fat }
+        let totalCalories = filteredEntries.reduce(0) { $0 + $1.calories }
+        let totalProtein = filteredEntries.reduce(0) { $0 + $1.protein }
+        let totalCarbs = filteredEntries.reduce(0) { $0 + $1.carbs }
+        let totalFat = filteredEntries.reduce(0) { $0 + $1.fat }
         
         return VStack(spacing: 12) {
-            Text("Today's Totals")
+            Text(dayTotalsTitle)
                 .font(.headline)
                 .frame(maxWidth: .infinity, alignment: .leading)
             
@@ -135,31 +207,28 @@ struct LogView: View {
     }
     
     private func groupedByDate() -> [(key: String, value: [FoodEntry])] {
+        // Since we're filtering by selectedDate, we'll just group by time of day
         let grouped = Dictionary(grouping: filteredEntries) { entry -> String in
             guard let date = entry.date else { return "Unknown" }
             
-            if Calendar.current.isDateInToday(date) {
-                return "Today"
-            } else if Calendar.current.isDateInYesterday(date) {
-                return "Yesterday"
-            } else {
-                let formatter = DateFormatter()
-                formatter.dateStyle = .medium
-                return formatter.string(from: date)
+            let hour = Calendar.current.component(.hour, from: date)
+            switch hour {
+            case 5..<11:
+                return "Breakfast"
+            case 11..<16:
+                return "Lunch"
+            case 16..<22:
+                return "Dinner"
+            default:
+                return "Snacks"
             }
         }
         
+        let order = ["Breakfast", "Lunch", "Dinner", "Snacks"]
         return grouped.sorted { pair1, pair2 in
-            let order = ["Today", "Yesterday"]
-            if let index1 = order.firstIndex(of: pair1.key), let index2 = order.firstIndex(of: pair2.key) {
-                return index1 < index2
-            } else if order.contains(pair1.key) {
-                return true
-            } else if order.contains(pair2.key) {
-                return false
-            } else {
-                return pair1.key > pair2.key
-            }
+            let index1 = order.firstIndex(of: pair1.key) ?? Int.max
+            let index2 = order.firstIndex(of: pair2.key) ?? Int.max
+            return index1 < index2
         }
     }
     
@@ -174,6 +243,49 @@ struct LogView: View {
                 print("Error deleting: \(nsError), \(nsError.userInfo)")
             }
         }
+    }
+    
+    // MARK: - Helper Functions
+    private var dateStatusText: String {
+        if Calendar.current.isDateInToday(selectedDate) {
+            return "Today"
+        } else if Calendar.current.isDateInYesterday(selectedDate) {
+            return "Yesterday"
+        } else if Calendar.current.isDateInTomorrow(selectedDate) {
+            return "Tomorrow"
+        } else {
+            return ""
+        }
+    }
+    
+    private var dayTotalsTitle: String {
+        if Calendar.current.isDateInToday(selectedDate) {
+            return "Today's Totals"
+        } else if Calendar.current.isDateInYesterday(selectedDate) {
+            return "Yesterday's Totals"
+        } else if Calendar.current.isDateInTomorrow(selectedDate) {
+            return "Tomorrow's Totals"
+        } else {
+            return "Day's Totals"
+        }
+    }
+    
+    private func goToPreviousDay() {
+        withAnimation(.easeInOut(duration: 0.3)) {
+            selectedDate = Calendar.current.date(byAdding: .day, value: -1, to: selectedDate) ?? selectedDate
+        }
+    }
+    
+    private func goToNextDay() {
+        withAnimation(.easeInOut(duration: 0.3)) {
+            selectedDate = Calendar.current.date(byAdding: .day, value: 1, to: selectedDate) ?? selectedDate
+        }
+    }
+    
+    private var dateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter
     }
 }
 
@@ -255,6 +367,8 @@ struct AddFoodEntryView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.dismiss) private var dismiss
     
+    @Binding var selectedDate: Date
+    
     @State private var name = ""
     @State private var barcode = ""
     @State private var calories = ""
@@ -265,6 +379,10 @@ struct AddFoodEntryView: View {
     
     @State private var showingAlert = false
     @State private var alertMessage = ""
+    
+    init(selectedDate: Binding<Date>) {
+        self._selectedDate = selectedDate
+    }
     
     var body: some View {
         NavigationView {
@@ -312,6 +430,10 @@ struct AddFoodEntryView: View {
                 Section(header: Text("Date & Time")) {
                     DatePicker("Date", selection: $date, displayedComponents: [.date, .hourAndMinute])
                 }
+            }
+            .onAppear {
+                // Initialize date with selected date
+                date = selectedDate
             }
             .navigationTitle("Add Food Entry")
             .navigationBarTitleDisplayMode(.inline)
