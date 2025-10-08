@@ -7,15 +7,28 @@
 
 import UIKit
 import CoreData
+@preconcurrency import FirebaseCore
+import FirebaseAuth
+import GoogleSignIn
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
-        // Initialize Core Data
+        // Configure Firebase
+        FirebaseApp.configure()
+        
+        // Initialize Core Data (keeping for backwards compatibility)
         _ = PersistenceController.shared
+        
+        // Firestore is automatically initialized with FirebaseApp.configure()
+        
         return true
+    }
+    
+    // Handle Google Sign-In URL
+    func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+        return GIDSignIn.sharedInstance.handle(url)
     }
 
     // MARK: UISceneSession Lifecycle
