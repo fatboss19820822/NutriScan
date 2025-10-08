@@ -7,6 +7,7 @@
 
 import SwiftUI
 import CoreData
+import FirebaseAuth
 
 struct LogView: View {
     @Environment(\.managedObjectContext) private var viewContext
@@ -14,19 +15,31 @@ struct LogView: View {
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \FoodEntry.date, ascending: false)],
         animation: .default)
-    private var foodEntries: FetchedResults<FoodEntry>
+    private var allFoodEntries: FetchedResults<FoodEntry>
     
     @State private var showingAddSheet = false
     @State private var searchText = ""
     @State private var selectedDate = Date()
     @State private var showingDatePicker = false
     
+    private var currentUserId: String? {
+        return Auth.auth().currentUser?.uid
+    }
+    
     var filteredEntries: [FoodEntry] {
-        let entries = foodEntries.filter { entry in
+        // Filter by current user ID first
+        let userEntries = allFoodEntries.filter { entry in
+            guard let userId = currentUserId else { return false }
+            return entry.userId == userId
+        }
+        
+        // Then filter by date
+        let entries = userEntries.filter { entry in
             guard let entryDate = entry.date else { return false }
             return Calendar.current.isDate(entryDate, inSameDayAs: selectedDate)
         }
         
+        // Finally filter by search text
         if searchText.isEmpty {
             return Array(entries)
         } else {
@@ -466,6 +479,12 @@ struct AddFoodEntryView: View {
             return
         }
         
+        guard let userId = Auth.auth().currentUser?.uid else {
+            alertMessage = "You must be logged in to add entries"
+            showingAlert = true
+            return
+        }
+        
         let caloriesValue = Double(calories) ?? 0
         let proteinValue = Double(protein) ?? 0
         let carbsValue = Double(carbs) ?? 0
@@ -480,6 +499,7 @@ struct AddFoodEntryView: View {
         newEntry.carbs = carbsValue
         newEntry.fat = fatValue
         newEntry.date = date
+        newEntry.userId = userId
         
         do {
             try viewContext.save()

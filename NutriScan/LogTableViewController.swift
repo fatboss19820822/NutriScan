@@ -16,9 +16,8 @@ class LogTableViewController: UIViewController {
     }
     
     private func setupSwiftUIView() {
-        // Create SwiftUI view with Core Data context
-        let logView = LogView()
-            .environment(\.managedObjectContext, PersistenceController.shared.container.viewContext)
+        // Create SwiftUI view with Firestore (cloud storage)
+        let logView = FirestoreLogView()
         
         // Create hosting controller
         let hostingController = UIHostingController(rootView: logView)
@@ -39,3 +38,29 @@ class LogTableViewController: UIViewController {
         hostingController.didMove(toParent: self)
     }
 }
+
+// MARK: - Legacy Core Data Version
+// Uncomment to switch back to Core Data (local storage)
+/*
+extension LogTableViewController {
+    private func setupCoreDataView() {
+        let logView = LogView()
+            .environment(\.managedObjectContext, PersistenceController.shared.container.viewContext)
+        
+        let hostingController = UIHostingController(rootView: logView)
+        
+        addChild(hostingController)
+        view.addSubview(hostingController.view)
+        
+        hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            hostingController.view.topAnchor.constraint(equalTo: view.topAnchor),
+            hostingController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            hostingController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            hostingController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+        
+        hostingController.didMove(toParent: self)
+    }
+}
+*/
