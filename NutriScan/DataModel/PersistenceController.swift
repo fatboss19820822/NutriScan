@@ -6,6 +6,7 @@
 //
 
 import CoreData
+import FirebaseAuth
 
 struct PersistenceController {
     static let shared = PersistenceController()
@@ -26,6 +27,7 @@ struct PersistenceController {
             entry.carbs = Double.random(in: 0...60)
             entry.fat = Double.random(in: 0...20)
             entry.date = Date().addingTimeInterval(Double(-i * 3600))
+            entry.userId = "preview-user"
         }
         
         do {
@@ -72,7 +74,7 @@ struct PersistenceController {
     }
     
     // MARK: - Helper methods
-    func addFoodEntry(name: String, barcode: String, calories: Double, protein: Double, carbs: Double, fat: Double, date: Date = Date()) {
+    func addFoodEntry(name: String, barcode: String, calories: Double, protein: Double, carbs: Double, fat: Double, date: Date = Date(), userId: String) {
         let context = container.viewContext
         let entry = FoodEntry(context: context)
         entry.id = UUID()
@@ -83,6 +85,7 @@ struct PersistenceController {
         entry.carbs = carbs
         entry.fat = fat
         entry.date = date
+        entry.userId = userId
         
         save()
     }
@@ -102,6 +105,20 @@ struct PersistenceController {
             return try context.fetch(fetchRequest)
         } catch {
             print("Error fetching entries: \(error)")
+            return []
+        }
+    }
+    
+    func fetchEntriesForUser(userId: String) -> [FoodEntry] {
+        let context = container.viewContext
+        let fetchRequest: NSFetchRequest<FoodEntry> = FoodEntry.fetchRequest()
+        fetchRequest.predicate = NSPredicate(format: "userId == %@", userId)
+        fetchRequest.sortDescriptors = [NSSortDescriptor(keyPath: \FoodEntry.date, ascending: false)]
+        
+        do {
+            return try context.fetch(fetchRequest)
+        } catch {
+            print("Error fetching entries for user: \(error)")
             return []
         }
     }
