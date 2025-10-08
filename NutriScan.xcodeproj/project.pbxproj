@@ -9,6 +9,9 @@
 /* Begin PBXBuildFile section */
 		4D671CD02E850C3200A22475 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 4D671CCF2E850C3200A22475 /* FirebaseAuth */; };
 		4D671CD22E850C3200A22475 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 4D671CD12E850C3200A22475 /* FirebaseFirestore */; };
+		4D671D1F2E96B52A00A22475 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 4D671D1E2E96B52A00A22475 /* GoogleSignIn */; };
+		4D671D212E96B52A00A22475 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 4D671D202E96B52A00A22475 /* GoogleSignInSwift */; };
+		4D671D232E96B81400A22475 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4D671D222E96B81400A22475 /* FirebaseCore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -42,7 +45,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				4D671CD02E850C3200A22475 /* FirebaseAuth in Frameworks */,
+				4D671D232E96B81400A22475 /* FirebaseCore in Frameworks */,
 				4D671CD22E850C3200A22475 /* FirebaseFirestore in Frameworks */,
+				4D671D1F2E96B52A00A22475 /* GoogleSignIn in Frameworks */,
+				4D671D212E96B52A00A22475 /* GoogleSignInSwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -53,6 +59,7 @@
 			isa = PBXGroup;
 			children = (
 				4D671CB42E850ABB00A22475 /* NutriScan */,
+				4D671D242E96BB5200A22475 /* Frameworks */,
 				4D671CB32E850ABB00A22475 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -63,6 +70,13 @@
 				4D671CB22E850ABB00A22475 /* NutriScan.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		4D671D242E96BB5200A22475 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -87,6 +101,9 @@
 			packageProductDependencies = (
 				4D671CCF2E850C3200A22475 /* FirebaseAuth */,
 				4D671CD12E850C3200A22475 /* FirebaseFirestore */,
+				4D671D1E2E96B52A00A22475 /* GoogleSignIn */,
+				4D671D202E96B52A00A22475 /* GoogleSignInSwift */,
+				4D671D222E96B81400A22475 /* FirebaseCore */,
 			);
 			productName = NutriScan;
 			productReference = 4D671CB22E850ABB00A22475 /* NutriScan.app */;
@@ -118,6 +135,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				4D671CCE2E850C3200A22475 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				4D671D1D2E96B52A00A22475 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 4D671CB32E850ABB00A22475 /* Products */;
@@ -355,6 +373,14 @@
 				minimumVersion = 12.3.0;
 			};
 		};
+		4D671D1D2E96B52A00A22475 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -367,6 +393,21 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 4D671CCE2E850C3200A22475 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseFirestore;
+		};
+		4D671D1E2E96B52A00A22475 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4D671D1D2E96B52A00A22475 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+		4D671D202E96B52A00A22475 /* GoogleSignInSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4D671D1D2E96B52A00A22475 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignInSwift;
+		};
+		4D671D222E96B81400A22475 /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4D671CCE2E850C3200A22475 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
