@@ -6,37 +6,59 @@
 //
 
 import UIKit
+import FirebaseAuth
 
 class ProfileViewController: UIViewController {
+    
+    private let profileImageView: UIImageView = {
+        let imageView = UIImageView()
+        imageView.image = UIImage(systemName: "person.circle.fill")
+        imageView.tintColor = .systemGray4
+        imageView.contentMode = .scaleAspectFit
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        return imageView
+    }()
+    
+    private let nameLabel: UILabel = {
+        let label = UILabel()
+        label.font = UIFont.systemFont(ofSize: 24, weight: .bold)
+        label.textAlignment = .center
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+    
+    private let emailLabel: UILabel = {
+        let label = UILabel()
+        label.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        label.textAlignment = .center
+        label.textColor = .secondaryLabel
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+    
+    private let providerLabel: UILabel = {
+        let label = UILabel()
+        label.font = UIFont.systemFont(ofSize: 14, weight: .regular)
+        label.textAlignment = .center
+        label.textColor = .secondaryLabel
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
     
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
+        loadUserData()
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        loadUserData()
     }
     
     private func setupUI() {
         view.backgroundColor = .systemBackground
         title = "Profile"
-        
-        // Create profile image placeholder
-        let profileImageView = UIImageView()
-        profileImageView.backgroundColor = .systemGray4
-        profileImageView.layer.cornerRadius = 50
-        profileImageView.clipsToBounds = true
-        profileImageView.translatesAutoresizingMaskIntoConstraints = false
-        
-        let nameLabel = UILabel()
-        nameLabel.text = "User Name"
-        nameLabel.font = UIFont.systemFont(ofSize: 24, weight: .bold)
-        nameLabel.textAlignment = .center
-        nameLabel.translatesAutoresizingMaskIntoConstraints = false
-        
-        let emailLabel = UILabel()
-        emailLabel.text = "user@example.com"
-        emailLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
-        emailLabel.textAlignment = .center
-        emailLabel.textColor = .secondaryLabel
-        emailLabel.translatesAutoresizingMaskIntoConstraints = false
         
         // Create settings button
         let settingsButton = UIButton(type: .system)
@@ -56,11 +78,23 @@ class ProfileViewController: UIViewController {
         goalsButton.translatesAutoresizingMaskIntoConstraints = false
         goalsButton.addTarget(self, action: #selector(goalsButtonTapped), for: .touchUpInside)
         
+        // Create logout button
+        let logoutButton = UIButton(type: .system)
+        logoutButton.setTitle("Log Out", for: .normal)
+        logoutButton.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .semibold)
+        logoutButton.backgroundColor = .systemRed
+        logoutButton.setTitleColor(.white, for: .normal)
+        logoutButton.layer.cornerRadius = 8
+        logoutButton.translatesAutoresizingMaskIntoConstraints = false
+        logoutButton.addTarget(self, action: #selector(logoutButtonTapped), for: .touchUpInside)
+        
         view.addSubview(profileImageView)
         view.addSubview(nameLabel)
         view.addSubview(emailLabel)
+        view.addSubview(providerLabel)
         view.addSubview(settingsButton)
         view.addSubview(goalsButton)
+        view.addSubview(logoutButton)
         
         NSLayoutConstraint.activate([
             profileImageView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
@@ -76,7 +110,11 @@ class ProfileViewController: UIViewController {
             emailLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             emailLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             
-            settingsButton.topAnchor.constraint(equalTo: emailLabel.bottomAnchor, constant: 40),
+            providerLabel.topAnchor.constraint(equalTo: emailLabel.bottomAnchor, constant: 4),
+            providerLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            providerLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            
+            settingsButton.topAnchor.constraint(equalTo: providerLabel.bottomAnchor, constant: 40),
             settingsButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             settingsButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             settingsButton.heightAnchor.constraint(equalToConstant: 44),
@@ -84,8 +122,46 @@ class ProfileViewController: UIViewController {
             goalsButton.topAnchor.constraint(equalTo: settingsButton.bottomAnchor, constant: 16),
             goalsButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             goalsButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            goalsButton.heightAnchor.constraint(equalToConstant: 44)
+            goalsButton.heightAnchor.constraint(equalToConstant: 44),
+            
+            logoutButton.topAnchor.constraint(equalTo: goalsButton.bottomAnchor, constant: 40),
+            logoutButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            logoutButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            logoutButton.heightAnchor.constraint(equalToConstant: 50)
         ])
+    }
+    
+    private func loadUserData() {
+        guard let user = Auth.auth().currentUser else {
+            // If no user is logged in, show login screen
+            return
+        }
+        
+        // Set user display name or email
+        if let displayName = user.displayName, !displayName.isEmpty {
+            nameLabel.text = displayName
+        } else {
+            nameLabel.text = "NutriScan User"
+        }
+        
+        // Set email
+        emailLabel.text = user.email ?? "No email"
+        
+        // Determine authentication provider
+        var providers: [String] = []
+        for userInfo in user.providerData {
+            if userInfo.providerID == "google.com" {
+                providers.append("Google")
+            } else if userInfo.providerID == "password" {
+                providers.append("Email")
+            }
+        }
+        
+        if !providers.isEmpty {
+            providerLabel.text = "Signed in with: \(providers.joined(separator: ", "))"
+        } else {
+            providerLabel.text = ""
+        }
     }
     
     @objc private func settingsButtonTapped() {
@@ -96,6 +172,46 @@ class ProfileViewController: UIViewController {
     
     @objc private func goalsButtonTapped() {
         let alert = UIAlertController(title: "Nutritional Goals", message: "Goals management functionality will be implemented here.", preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+    }
+    
+    @objc private func logoutButtonTapped() {
+        let alert = UIAlertController(title: "Log Out", message: "Are you sure you want to log out?", preferredStyle: .alert)
+        
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Log Out", style: .destructive) { [weak self] _ in
+            self?.performLogout()
+        })
+        
+        present(alert, animated: true)
+    }
+    
+    private func performLogout() {
+        AuthenticationManager.shared.signOut { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    // Navigate to login screen
+                    self?.navigateToLogin()
+                case .failure(let error):
+                    self?.showAlert(title: "Logout Failed", message: error.localizedDescription)
+                }
+            }
+        }
+    }
+    
+    private func navigateToLogin() {
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let sceneDelegate = windowScene.delegate as? SceneDelegate else {
+            return
+        }
+        
+        sceneDelegate.showLoginScreen()
+    }
+    
+    private func showAlert(title: String, message: String) {
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
     }
