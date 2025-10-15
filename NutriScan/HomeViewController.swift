@@ -539,8 +539,8 @@ class HomeViewController: UIViewController {
     
     // MARK: - Actions
     @objc private func viewAllTapped() {
-        // Switch to Log tab
-        tabBarController?.selectedIndex = 1
+        // Switch to Log tab (index 2: Home=0, Scan=1, Log=2)
+        tabBarController?.selectedIndex = 2
     }
 }
 
