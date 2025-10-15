@@ -17,8 +17,11 @@ class ScanViewController: UIViewController {
     private var scanningAreaView: UIView!
     private var instructionLabel: UILabel!
     private var closeButton: UIButton!
+    private var torchButton: UIButton!
     
     private var isScanning = false
+    private var isTorchOn = false
+    private var currentDevice: AVCaptureDevice?
     
     // MARK: - Lifecycle
     
@@ -41,6 +44,11 @@ class ScanViewController: UIViewController {
     
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
+        
+        // Turn off torch if it's on
+        if isTorchOn {
+            toggleTorch()
+        }
         
         // Stop camera session when view disappears
         if captureSession != nil && captureSession.isRunning {
@@ -101,6 +109,9 @@ class ScanViewController: UIViewController {
             showCameraError()
             return
         }
+        
+        // Store the device for torch control
+        currentDevice = videoCaptureDevice
         
         let videoInput: AVCaptureDeviceInput
         
@@ -213,6 +224,21 @@ class ScanViewController: UIViewController {
         closeButton.addTarget(self, action: #selector(closeButtonTapped), for: .touchUpInside)
         view.addSubview(closeButton)
         
+        // Torch button
+        torchButton = UIButton(type: .system)
+        torchButton.setImage(UIImage(systemName: "flashlight.off.fill"), for: .normal)
+        torchButton.tintColor = .white
+        torchButton.backgroundColor = UIColor.black.withAlphaComponent(0.5)
+        torchButton.layer.cornerRadius = 25
+        torchButton.translatesAutoresizingMaskIntoConstraints = false
+        torchButton.addTarget(self, action: #selector(torchButtonTapped), for: .touchUpInside)
+        view.addSubview(torchButton)
+        
+        // Hide torch button if device doesn't support it
+        if let device = currentDevice, !device.hasTorch {
+            torchButton.isHidden = true
+        }
+        
         // Layout constraints
         NSLayoutConstraint.activate([
             scanningAreaView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
@@ -227,7 +253,12 @@ class ScanViewController: UIViewController {
             closeButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
             closeButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             closeButton.widthAnchor.constraint(equalToConstant: 44),
-            closeButton.heightAnchor.constraint(equalToConstant: 44)
+            closeButton.heightAnchor.constraint(equalToConstant: 44),
+            
+            torchButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -30),
+            torchButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            torchButton.widthAnchor.constraint(equalToConstant: 50),
+            torchButton.heightAnchor.constraint(equalToConstant: 50)
         ])
         
         // Add scanning animation
@@ -261,6 +292,45 @@ class ScanViewController: UIViewController {
     @objc private func closeButtonTapped() {
         // Optional: implement if you want a way to dismiss the scanner
         navigationController?.popViewController(animated: true)
+    }
+    
+    @objc private func torchButtonTapped() {
+        toggleTorch()
+    }
+    
+    private func toggleTorch() {
+        guard let device = currentDevice, device.hasTorch else {
+            return
+        }
+        
+        do {
+            try device.lockForConfiguration()
+            
+            if isTorchOn {
+                // Turn off torch
+                device.torchMode = .off
+                isTorchOn = false
+                torchButton.setImage(UIImage(systemName: "flashlight.off.fill"), for: .normal)
+                torchButton.backgroundColor = UIColor.black.withAlphaComponent(0.5)
+            } else {
+                // Turn on torch
+                if device.isTorchModeSupported(.on) {
+                    device.torchMode = .on
+                    isTorchOn = true
+                    torchButton.setImage(UIImage(systemName: "flashlight.on.fill"), for: .normal)
+                    torchButton.backgroundColor = UIColor.systemYellow.withAlphaComponent(0.7)
+                }
+            }
+            
+            device.unlockForConfiguration()
+            
+            // Haptic feedback
+            let generator = UIImpactFeedbackGenerator(style: .light)
+            generator.impactOccurred()
+            
+        } catch {
+            print("Error toggling torch: \(error.localizedDescription)")
+        }
     }
     
     // MARK: - Helper Methods
