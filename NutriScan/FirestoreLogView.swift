@@ -17,6 +17,7 @@ struct FirestoreLogView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var showingError = false
+    @State private var prefilledBarcode: String?
     
     private var currentUserId: String? {
         return Auth.auth().currentUser?.uid
@@ -63,9 +64,14 @@ struct FirestoreLogView: View {
                 }
             }
             .sheet(isPresented: $showingAddSheet) {
-                FirestoreAddFoodEntryView(selectedDate: $selectedDate, onSave: {
-                    loadEntries()
-                })
+                FirestoreAddFoodEntryView(
+                    selectedDate: $selectedDate,
+                    prefilledBarcode: prefilledBarcode,
+                    onSave: {
+                        loadEntries()
+                        prefilledBarcode = nil  // Clear after use
+                    }
+                )
             }
             .sheet(isPresented: $showingDatePicker) {
                 datePickerSheet
@@ -77,6 +83,7 @@ struct FirestoreLogView: View {
             }
             .onAppear {
                 loadEntries()
+                setupNotificationObserver()
             }
             .onChange(of: selectedDate) { _ in
                 loadEntries()
@@ -274,6 +281,19 @@ struct FirestoreLogView: View {
         }
     }
     
+    private func setupNotificationObserver() {
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("OpenManualEntry"),
+            object: nil,
+            queue: .main
+        ) { notification in
+            if let barcode = notification.userInfo?["barcode"] as? String {
+                prefilledBarcode = barcode
+                showingAddSheet = true
+            }
+        }
+    }
+    
     // MARK: - Helper Functions
     private var dateStatusText: String {
         if Calendar.current.isDateInToday(selectedDate) {
@@ -357,6 +377,7 @@ struct FirestoreFoodEntryRow: View {
 struct FirestoreAddFoodEntryView: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var selectedDate: Date
+    var prefilledBarcode: String?
     var onSave: () -> Void
     
     @State private var name = ""
@@ -371,10 +392,12 @@ struct FirestoreAddFoodEntryView: View {
     @State private var alertMessage = ""
     @State private var isSaving = false
     
-    init(selectedDate: Binding<Date>, onSave: @escaping () -> Void) {
+    init(selectedDate: Binding<Date>, prefilledBarcode: String? = nil, onSave: @escaping () -> Void) {
         self._selectedDate = selectedDate
+        self.prefilledBarcode = prefilledBarcode
         self.onSave = onSave
         self._date = State(initialValue: selectedDate.wrappedValue)
+        self._barcode = State(initialValue: prefilledBarcode ?? "")
     }
     
     var body: some View {
@@ -382,8 +405,19 @@ struct FirestoreAddFoodEntryView: View {
             Form {
                 Section(header: Text("Food Information")) {
                     TextField("Food Name", text: $name)
-                    TextField("Barcode", text: $barcode)
-                        .keyboardType(.numberPad)
+                    
+                    if prefilledBarcode != nil {
+                        HStack {
+                            Text("Barcode (Scanned)")
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Text(barcode)
+                                .foregroundColor(.primary)
+                        }
+                    } else {
+                        TextField("Barcode (Optional)", text: $barcode)
+                            .keyboardType(.numberPad)
+                    }
                 }
                 
                 Section(header: Text("Nutritional Information")) {
