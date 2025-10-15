@@ -216,13 +216,14 @@ class ScanViewController: UIViewController {
         instructionLabel.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(instructionLabel)
         
-        // Close button (hidden since we navigate via tab bar)
+        // Close button (redirects to dashboard/home)
         closeButton = UIButton(type: .system)
         closeButton.setImage(UIImage(systemName: "xmark.circle.fill"), for: .normal)
         closeButton.tintColor = .white
+        closeButton.backgroundColor = UIColor.black.withAlphaComponent(0.5)
+        closeButton.layer.cornerRadius = 22
         closeButton.translatesAutoresizingMaskIntoConstraints = false
         closeButton.addTarget(self, action: #selector(closeButtonTapped), for: .touchUpInside)
-        closeButton.isHidden = true  // Hidden since ScanViewController is accessed via tab bar
         view.addSubview(closeButton)
         
         // Torch button
@@ -291,8 +292,12 @@ class ScanViewController: UIViewController {
     // MARK: - Actions
     
     @objc private func closeButtonTapped() {
-        // Optional: implement if you want a way to dismiss the scanner
-        navigationController?.popViewController(animated: true)
+        // Redirect to dashboard/home tab
+        tabBarController?.selectedIndex = 0
+        
+        // Haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred()
     }
     
     @objc private func torchButtonTapped() {
