@@ -216,12 +216,13 @@ class ScanViewController: UIViewController {
         instructionLabel.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(instructionLabel)
         
-        // Close button (optional - if you want to dismiss the scanner)
+        // Close button (hidden since we navigate via tab bar)
         closeButton = UIButton(type: .system)
         closeButton.setImage(UIImage(systemName: "xmark.circle.fill"), for: .normal)
         closeButton.tintColor = .white
         closeButton.translatesAutoresizingMaskIntoConstraints = false
         closeButton.addTarget(self, action: #selector(closeButtonTapped), for: .touchUpInside)
+        closeButton.isHidden = true  // Hidden since ScanViewController is accessed via tab bar
         view.addSubview(closeButton)
         
         // Torch button
