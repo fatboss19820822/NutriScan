@@ -231,26 +231,109 @@ class TrendsViewController: UIViewController {
     
     private func getFilteredData() -> [FoodEntryModel] {
         let calendar = Calendar.current
-        let today = Date()
-        let startDate = calendar.date(byAdding: .day, value: -currentTimePeriod.numberOfDays, to: today) ?? today
+        let today = calendar.startOfDay(for: Date())
         
-        return foodEntries.filter { entry in
-            entry.date >= startDate && entry.date <= today
+        let startDate: Date
+        let endDate: Date
+        
+        switch currentTimePeriod {
+        case .day:
+            // Show today only
+            startDate = today
+            endDate = calendar.date(byAdding: .day, value: 1, to: today) ?? today
+            
+        case .week:
+            // Show last 7 days including today
+            startDate = calendar.date(byAdding: .day, value: -6, to: today) ?? today
+            endDate = calendar.date(byAdding: .day, value: 1, to: today) ?? today
+            
+        case .month:
+            // Show last 30 days including today
+            startDate = calendar.date(byAdding: .day, value: -29, to: today) ?? today
+            endDate = calendar.date(byAdding: .day, value: 1, to: today) ?? today
         }
+        
+        print("📅 Filtering data for period: \(currentTimePeriod.title)")
+        print("   Today: \(today)")
+        print("   Start: \(startDate)")
+        print("   End: \(endDate)")
+        print("   Total entries: \(foodEntries.count)")
+        
+        let filtered = foodEntries.filter { entry in
+            let entryDay = calendar.startOfDay(for: entry.date)
+            let isInRange = entryDay >= startDate && entryDay < endDate
+            print("   Entry '\(entry.name)' on \(entryDay): \(isInRange ? "✅ included" : "❌ excluded")")
+            return isInRange
+        }
+        
+        print("   Filtered to: \(filtered.count) entries")
+        
+        return filtered
     }
     
     private func aggregateCalorieData(from entries: [FoodEntryModel]) -> [DailyCalorieData] {
         let calendar = Calendar.current
         var dailyCalories: [Date: Double] = [:]
         
-        for entry in entries {
-            let startOfDay = calendar.startOfDay(for: entry.date)
-            dailyCalories[startOfDay, default: 0] += entry.calories
+        print("📊 Aggregating calorie data from \(entries.count) entries")
+        
+        if currentTimePeriod == .day {
+            // For Day view: cumulative calories over time within the day
+            let today = calendar.startOfDay(for: Date())
+            let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) ?? today
+            let todaysEntries = entries
+                .filter { $0.date >= today && $0.date < tomorrow }
+                .sorted { $0.date < $1.date }
+            
+            var runningTotal: Double = 0
+            for entry in todaysEntries {
+                runningTotal += entry.calories
+                // Use the exact time of the entry for the x-axis
+                dailyCalories[entry.date] = runningTotal
+                print("  • [DAY] \(entry.name): +\(entry.calories) → \(runningTotal) cal at \(entry.date)")
+            }
+        } else {
+            // For Week/Month: aggregate by day
+            for entry in entries {
+                let startOfDay = calendar.startOfDay(for: entry.date)
+                dailyCalories[startOfDay, default: 0] += entry.calories
+                print("  • \(entry.name): \(entry.calories) cal on \(startOfDay)")
+            }
         }
         
-        return dailyCalories.map { date, calories in
+        // Fill missing days only for Week/Month to keep chart continuous
+        if currentTimePeriod != .day {
+            let today = calendar.startOfDay(for: Date())
+            let startDate: Date
+            
+            switch currentTimePeriod {
+            case .day:
+                startDate = today // not used in this branch
+            case .week:
+                startDate = calendar.date(byAdding: .day, value: -6, to: today) ?? today
+            case .month:
+                startDate = calendar.date(byAdding: .day, value: -29, to: today) ?? today
+            }
+            
+            var currentDate = startDate
+            while currentDate <= today {
+                if dailyCalories[currentDate] == nil {
+                    dailyCalories[currentDate] = 0
+                }
+                currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate) ?? currentDate
+            }
+        }
+        
+        let result = dailyCalories.map { date, calories in
             DailyCalorieData(date: date, calories: calories)
         }.sorted { $0.date < $1.date }
+        
+        print("📊 Created \(result.count) data points for chart")
+        for point in result {
+            print("  • \(point.date): \(point.calories) cal")
+        }
+        
+        return result
     }
     
     private func aggregateMacroData(from entries: [FoodEntryModel]) -> [DailyMacroData] {
@@ -278,7 +361,7 @@ class TrendsViewController: UIViewController {
         calorieChartHostingController?.removeFromParent()
         
         // Create new SwiftUI chart view
-        let chartView = CalorieChartView(data: data)
+        let chartView = CalorieChartView(data: data, isDayView: currentTimePeriod == .day)
         let hostingController = UIHostingController(rootView: chartView)
         
         addChild(hostingController)
@@ -390,6 +473,7 @@ struct MacroDataPoint: Identifiable {
 // MARK: - SwiftUI Chart Views
 struct CalorieChartView: View {
     let data: [DailyCalorieData]
+    let isDayView: Bool
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -406,14 +490,14 @@ struct CalorieChartView: View {
             } else {
                 Chart(data) { item in
                     LineMark(
-                        x: .value("Date", item.date, unit: .day),
+                        x: isDayView ? .value("Time", item.date) : .value("Date", item.date, unit: .day),
                         y: .value("Calories", item.calories)
                     )
                     .foregroundStyle(Color.blue)
-                    .interpolationMethod(.catmullRom)
+                    .interpolationMethod(.monotone)
                     
                     AreaMark(
-                        x: .value("Date", item.date, unit: .day),
+                        x: isDayView ? .value("Time", item.date) : .value("Date", item.date, unit: .day),
                         y: .value("Calories", item.calories)
                     )
                     .foregroundStyle(
@@ -423,18 +507,25 @@ struct CalorieChartView: View {
                             endPoint: .bottom
                         )
                     )
-                    .interpolationMethod(.catmullRom)
+                    .interpolationMethod(.monotone)
                     
                     PointMark(
-                        x: .value("Date", item.date, unit: .day),
+                        x: isDayView ? .value("Time", item.date) : .value("Date", item.date, unit: .day),
                         y: .value("Calories", item.calories)
                     )
                     .foregroundStyle(Color.blue)
                 }
                 .chartXAxis {
-                    AxisMarks(values: .stride(by: .day)) { value in
-                        AxisGridLine()
-                        AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                    if isDayView {
+                        AxisMarks(values: .automatic) { value in
+                            AxisGridLine()
+                            AxisValueLabel(format: .dateTime.hour().minute())
+                        }
+                    } else {
+                        AxisMarks(values: .stride(by: .day)) { value in
+                            AxisGridLine()
+                            AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                        }
                     }
                 }
                 .chartYAxis {
