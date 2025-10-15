@@ -22,6 +22,7 @@ class ScanViewController: UIViewController {
     private var isScanning = false
     private var isTorchOn = false
     private var currentDevice: AVCaptureDevice?
+    private weak var navController: UINavigationController?
     
     // MARK: - Lifecycle
     
@@ -32,6 +33,10 @@ class ScanViewController: UIViewController {
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        
+        // Store navigation controller reference
+        navController = navigationController
+        print("🧭 Stored navigation controller reference: \(navController != nil)")
         
         // Start camera session when view appears
         if captureSession != nil && !captureSession.isRunning {
@@ -374,6 +379,8 @@ class ScanViewController: UIViewController {
         guard isScanning else { return }
         isScanning = false
         
+        print("📷 Barcode detected: \(barcode) (Type: \(barcodeTypeToString(type)))")
+        
         // Haptic feedback
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)
@@ -399,24 +406,8 @@ class ScanViewController: UIViewController {
     }
     
     private func showBarcodeResult(barcode: String, type: AVMetadataObject.ObjectType) {
-        let typeString = barcodeTypeToString(type)
-        
-        let alert = UIAlertController(
-            title: "Barcode Detected",
-            message: "Type: \(typeString)\nCode: \(barcode)",
-            preferredStyle: .alert
-        )
-        
-        alert.addAction(UIAlertAction(title: "Scan Again", style: .default) { [weak self] _ in
-            self?.resetScanner()
-        })
-        
-        alert.addAction(UIAlertAction(title: "Lookup Product", style: .default) { [weak self] _ in
-            // TODO: Implement product lookup functionality
-            self?.lookupProduct(barcode: barcode)
-        })
-        
-        present(alert, animated: true)
+        // Automatically lookup product
+        lookupProduct(barcode: barcode)
     }
     
     private func barcodeTypeToString(_ type: AVMetadataObject.ObjectType) -> String {
@@ -440,20 +431,161 @@ class ScanViewController: UIViewController {
         scanningAreaView.layer.borderColor = UIColor.systemGreen.cgColor
     }
     
+    private func createLoadingView() -> UIView {
+        let container = UIView()
+        container.backgroundColor = UIColor.black.withAlphaComponent(0.7)
+        container.tag = 9999 // Tag for easy removal
+        
+        let activityIndicator = UIActivityIndicatorView(style: .large)
+        activityIndicator.color = .white
+        activityIndicator.translatesAutoresizingMaskIntoConstraints = false
+        activityIndicator.startAnimating()
+        
+        let label = UILabel()
+        label.text = "Looking up product..."
+        label.textColor = .white
+        label.font = UIFont.systemFont(ofSize: 16, weight: .medium)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        
+        container.addSubview(activityIndicator)
+        container.addSubview(label)
+        
+        NSLayoutConstraint.activate([
+            activityIndicator.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            activityIndicator.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            
+            label.topAnchor.constraint(equalTo: activityIndicator.bottomAnchor, constant: 16),
+            label.centerXAnchor.constraint(equalTo: container.centerXAnchor)
+        ])
+        
+        return container
+    }
+    
+    private func removeLoadingView() {
+        view.subviews.first(where: { $0.tag == 9999 })?.removeFromSuperview()
+    }
+    
     private func lookupProduct(barcode: String) {
-        // TODO: Implement API call to food database (e.g., Open Food Facts)
-        // This will be implemented in the next step
+        // Show loading overlay instead of alert
+        let loadingView = createLoadingView()
+        view.addSubview(loadingView)
+        loadingView.frame = view.bounds
+        
+        // Use a wrapper class to capture hasCompleted by reference
+        class CompletionState { var hasCompleted = false }
+        let completionState = CompletionState()
+        
+        // Add timeout safety - dismiss loading after 30 seconds max
+        DispatchQueue.main.asyncAfter(deadline: .now() + 30) { [weak self] in
+            if !completionState.hasCompleted {
+                completionState.hasCompleted = true
+                let error = NSError(
+                    domain: "ScanViewController",
+                    code: -1,
+                    userInfo: [NSLocalizedDescriptionKey: "Request timed out. Please check your internet connection and try again."]
+                )
+                self?.handleLookupResult(result: .failure(error), barcode: barcode)
+            }
+        }
+        
+        // Fetch product from Open Food Facts API
+        OpenFoodFactsService.shared.fetchProduct(barcode: barcode) { [weak self] result in
+            DispatchQueue.main.async {
+                guard !completionState.hasCompleted else { return }
+                completionState.hasCompleted = true
+                
+                // Always handle the result - the handler will take care of dismissing
+                self?.handleLookupResult(result: result, barcode: barcode)
+            }
+        }
+    }
+    
+    private func handleLookupResult(result: Result<FoodProduct, Error>, barcode: String) {
+        // Ensure we're on main thread and remove loading view
+        DispatchQueue.main.async { [weak self] in
+            print("🔄 Removing loading view...")
+            self?.removeLoadingView()
+            print("✅ Loading view removed")
+            self?.processLookupResult(result: result, barcode: barcode)
+        }
+    }
+    
+    private func processLookupResult(result: Result<FoodProduct, Error>, barcode: String) {
+        switch result {
+        case .success(let product):
+            // Show product details
+            print("✅ Navigating to product details...")
+            showProductDetails(product: product)
+            
+        case .failure(let error):
+            // Show error
+            print("❌ Product lookup error: \(error.localizedDescription)")
+            showProductNotFoundError(barcode: barcode, error: error)
+        }
+    }
+    
+    private func showProductDetails(product: FoodProduct) {
+        print("📱 Creating ProductDetailViewController...")
+        let detailVC = ProductDetailViewController(product: product)
+        
+        print("🧭 Stored navigation controller exists: \(navController != nil)")
+        print("🧭 Direct navigationController exists: \(navigationController != nil)")
+        
+        if let nav = navController {
+            print("📍 Current view controllers in stack: \(nav.viewControllers.count)")
+            nav.pushViewController(detailVC, animated: true)
+            print("✅ Pushed ProductDetailViewController to navigation stack")
+        } else if let nav = navigationController {
+            print("📍 Using direct navigationController - view controllers in stack: \(nav.viewControllers.count)")
+            nav.pushViewController(detailVC, animated: true)
+            print("✅ Pushed ProductDetailViewController to navigation stack (via direct reference)")
+        } else {
+            print("❌ Both navigation controller references are nil - cannot navigate")
+            print("❌ Presenting modally as fallback...")
+            let navVC = UINavigationController(rootViewController: detailVC)
+            present(navVC, animated: true)
+        }
+        
+        // Reset scanner for next scan
+        resetScanner()
+    }
+    
+    private func showProductNotFoundError(barcode: String, error: Error) {
         let alert = UIAlertController(
-            title: "Product Lookup",
-            message: "Product lookup functionality will be implemented to fetch nutritional information for barcode: \(barcode)",
+            title: "Product Not Found",
+            message: error.localizedDescription + "\n\nWould you like to add this item manually?",
             preferredStyle: .alert
         )
         
-        alert.addAction(UIAlertAction(title: "OK", style: .default) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Scan Again", style: .cancel) { [weak self] _ in
             self?.resetScanner()
         })
         
+        alert.addAction(UIAlertAction(title: "Add Manually", style: .default) { [weak self] _ in
+            self?.navigateToManualEntry(barcode: barcode)
+        })
+        
         present(alert, animated: true)
+    }
+    
+    private func navigateToManualEntry(barcode: String) {
+        // Navigate to Log tab and trigger manual entry with barcode
+        if let tabBarController = tabBarController {
+            // Switch to Log tab (index 2)
+            tabBarController.selectedIndex = 2
+            
+            // Post notification with barcode to open add sheet
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("OpenManualEntry"),
+                    object: nil,
+                    userInfo: ["barcode": barcode]
+                )
+            }
+        }
+        
+        // Reset scanner for next use
+        resetScanner()
     }
 }
 
