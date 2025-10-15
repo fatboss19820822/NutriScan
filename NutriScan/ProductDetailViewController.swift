@@ -448,7 +448,8 @@ class ProductDetailViewController: UIViewController {
             components.hour = 18
             components.minute = 30
         case "Snacks":
-            components.hour = 15
+            // Ensure snacks are outside Lunch/Dinner windows so computed category maps to "Snacks"
+            components.hour = 22
             components.minute = 0
         default:
             return Date()
