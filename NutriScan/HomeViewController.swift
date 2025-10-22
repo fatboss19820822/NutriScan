@@ -7,6 +7,7 @@
 
 import UIKit
 import FirebaseAuth
+import FirebaseFirestore
 
 class HomeViewController: UIViewController {
     
@@ -14,11 +15,8 @@ class HomeViewController: UIViewController {
     private var foodEntries: [FoodEntryModel] = []
     private var todayEntries: [FoodEntryModel] = []
     private var weekData: [(date: Date, calories: Double)] = []
-    
-    private let dailyCalorieGoal: Double = 2000
-    private let dailyProteinGoal: Double = 150
-    private let dailyCarbsGoal: Double = 250
-    private let dailyFatGoal: Double = 65
+    private var nutritionGoals: NutritionGoalsModel?
+    private var goalsListener: ListenerRegistration?
     
     // MARK: - UI Components
     private let scrollView: UIScrollView = {
@@ -193,6 +191,7 @@ class HomeViewController: UIViewController {
         return refresh
     }()
     
+    
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -207,6 +206,12 @@ class HomeViewController: UIViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         refreshData()
+        loadNutritionGoals()
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        goalsListener?.remove()
     }
     
     // MARK: - Setup
@@ -355,6 +360,23 @@ class HomeViewController: UIViewController {
         fetchWeekData()
     }
     
+    private func loadNutritionGoals() {
+        goalsListener = FirestoreManager.shared.observeNutritionGoals { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let goals):
+                    self?.nutritionGoals = goals
+                    self?.updateSummaryCard()
+                case .failure(let error):
+                    print("Error loading nutrition goals: \(error.localizedDescription)")
+                    // Use default goals if loading fails
+                    self?.nutritionGoals = NutritionGoalsModel.defaultGoals
+                    self?.updateSummaryCard()
+                }
+            }
+        }
+    }
+    
     @objc private func refreshData() {
         loadData()
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
@@ -445,10 +467,12 @@ class HomeViewController: UIViewController {
         let totalCarbs = todayEntries.reduce(0) { $0 + $1.carbs }
         let totalFat = todayEntries.reduce(0) { $0 + $1.fat }
         
-        caloriesProgressView.setProgress(current: totalCalories, goal: dailyCalorieGoal, unit: "cal")
-        proteinProgressView.setProgress(current: totalProtein, goal: dailyProteinGoal, unit: "g")
-        carbsProgressView.setProgress(current: totalCarbs, goal: dailyCarbsGoal, unit: "g")
-        fatProgressView.setProgress(current: totalFat, goal: dailyFatGoal, unit: "g")
+        let goals = nutritionGoals ?? NutritionGoalsModel.defaultGoals
+        
+        caloriesProgressView.setProgress(current: totalCalories, goal: goals.dailyCalorieGoal, unit: "cal")
+        proteinProgressView.setProgress(current: totalProtein, goal: goals.dailyProteinGoal, unit: "g")
+        carbsProgressView.setProgress(current: totalCarbs, goal: goals.dailyCarbsGoal, unit: "g")
+        fatProgressView.setProgress(current: totalFat, goal: goals.dailyFatGoal, unit: "g")
     }
     
     private func updateRecentLog() {
@@ -501,25 +525,26 @@ class HomeViewController: UIViewController {
         let totalCarbs = todayEntries.reduce(0) { $0 + $1.carbs }
         let totalFat = todayEntries.reduce(0) { $0 + $1.fat }
         
-        let calorieProgress = totalCalories / dailyCalorieGoal
+        let goals = nutritionGoals ?? NutritionGoalsModel.defaultGoals
+        let calorieProgress = totalCalories / goals.dailyCalorieGoal
         
         // Calorie insights
         if calorieProgress < 0.3 {
-            insights.append((emoji: "🍽️", text: "You have \(Int(dailyCalorieGoal - totalCalories)) calories remaining today"))
+            insights.append((emoji: "🍽️", text: "You have \(Int(goals.dailyCalorieGoal - totalCalories)) calories remaining today"))
         } else if calorieProgress < 0.7 {
             insights.append((emoji: "💪", text: "Great progress! \(Int((calorieProgress * 100)))% of your calorie goal reached"))
         } else if calorieProgress < 1.0 {
-            insights.append((emoji: "🎯", text: "Almost there! Only \(Int(dailyCalorieGoal - totalCalories)) calories to go"))
+            insights.append((emoji: "🎯", text: "Almost there! Only \(Int(goals.dailyCalorieGoal - totalCalories)) calories to go"))
         } else if calorieProgress > 1.2 {
-            insights.append((emoji: "⚠️", text: "You've exceeded your calorie goal by \(Int(totalCalories - dailyCalorieGoal)) calories"))
+            insights.append((emoji: "⚠️", text: "You've exceeded your calorie goal by \(Int(totalCalories - goals.dailyCalorieGoal)) calories"))
         } else {
             insights.append((emoji: "🎉", text: "Excellent! You've hit your calorie goal for today"))
         }
         
         // Protein insights
-        if totalProtein >= dailyProteinGoal {
+        if totalProtein >= goals.dailyProteinGoal {
             insights.append((emoji: "💪", text: "Protein goal achieved! Great job!"))
-        } else if totalProtein < dailyProteinGoal * 0.5 {
+        } else if totalProtein < goals.dailyProteinGoal * 0.5 {
             insights.append((emoji: "🥩", text: "Consider adding more protein to your meals"))
         }
         
@@ -542,6 +567,7 @@ class HomeViewController: UIViewController {
         // Switch to Log tab (index 2: Home=0, Scan=1, Log=2)
         tabBarController?.selectedIndex = 2
     }
+    
 }
 
 // MARK: - Custom Views

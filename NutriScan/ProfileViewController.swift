@@ -335,9 +335,9 @@ class ProfileViewController: UIViewController, TimePickerDelegate {
     }
     
     @objc private func goalsButtonTapped() {
-        let alert = UIAlertController(title: "Nutritional Goals", message: "Goals management functionality will be implemented here.", preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        present(alert, animated: true)
+        let goalsVC = NutritionGoalsViewController()
+        let navController = UINavigationController(rootViewController: goalsVC)
+        present(navController, animated: true)
     }
     
     @objc private func logoutButtonTapped() {

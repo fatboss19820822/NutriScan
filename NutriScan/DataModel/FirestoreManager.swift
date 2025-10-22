@@ -15,6 +15,7 @@ class FirestoreManager {
     
     private let db = Firestore.firestore()
     private let foodEntriesCollection = "foodEntries"
+    private let nutritionGoalsCollection = "nutritionGoals"
     
     private init() {
         // Configure Firestore settings
@@ -286,6 +287,115 @@ class FirestoreManager {
                 
                 completion(.success(totalCalories))
             }
+    }
+    
+    // MARK: - Nutrition Goals
+    
+    /// Save or update nutrition goals for the current user
+    func saveNutritionGoals(
+        calorieGoal: Double,
+        proteinGoal: Double,
+        carbsGoal: Double,
+        fatGoal: Double,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard let userId = currentUserId else {
+            completion(.failure(NSError(domain: "FirestoreManager", code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "No user logged in"])))
+            return
+        }
+        
+        let data: [String: Any] = [
+            "userId": userId,
+            "dailyCalorieGoal": calorieGoal,
+            "dailyProteinGoal": proteinGoal,
+            "dailyCarbsGoal": carbsGoal,
+            "dailyFatGoal": fatGoal,
+            "updatedAt": FieldValue.serverTimestamp()
+        ]
+        
+        // Use userId as document ID to ensure only one goals document per user
+        db.collection(nutritionGoalsCollection).document(userId).setData(data, merge: true) { error in
+            if let error = error {
+                completion(.failure(error))
+            } else {
+                completion(.success(()))
+            }
+        }
+    }
+    
+    /// Fetch nutrition goals for the current user
+    func fetchNutritionGoals(completion: @escaping (Result<NutritionGoalsModel?, Error>) -> Void) {
+        guard let userId = currentUserId else {
+            completion(.failure(NSError(domain: "FirestoreManager", code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "No user logged in"])))
+            return
+        }
+        
+        db.collection(nutritionGoalsCollection).document(userId).getDocument { document, error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+            
+            guard let document = document, document.exists else {
+                // Return default goals if no goals are set
+                let defaultGoals = NutritionGoalsModel(
+                    userId: userId,
+                    dailyCalorieGoal: 2000,
+                    dailyProteinGoal: 150,
+                    dailyCarbsGoal: 250,
+                    dailyFatGoal: 65
+                )
+                completion(.success(defaultGoals))
+                return
+            }
+            
+            do {
+                let goals = try document.data(as: NutritionGoalsModel.self)
+                completion(.success(goals))
+            } catch {
+                completion(.failure(error))
+            }
+        }
+    }
+    
+    /// Listen for real-time updates to nutrition goals
+    func observeNutritionGoals(completion: @escaping (Result<NutritionGoalsModel?, Error>) -> Void) -> ListenerRegistration? {
+        guard let userId = currentUserId else {
+            completion(.failure(NSError(domain: "FirestoreManager", code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "No user logged in"])))
+            return nil
+        }
+        
+        let listener = db.collection(nutritionGoalsCollection).document(userId).addSnapshotListener { document, error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+            
+            guard let document = document, document.exists else {
+                // Return default goals if no goals are set
+                let defaultGoals = NutritionGoalsModel(
+                    userId: userId,
+                    dailyCalorieGoal: 2000,
+                    dailyProteinGoal: 150,
+                    dailyCarbsGoal: 250,
+                    dailyFatGoal: 65
+                )
+                completion(.success(defaultGoals))
+                return
+            }
+            
+            do {
+                let goals = try document.data(as: NutritionGoalsModel.self)
+                completion(.success(goals))
+            } catch {
+                completion(.failure(error))
+            }
+        }
+        
+        return listener
     }
 }
 
