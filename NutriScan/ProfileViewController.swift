@@ -9,7 +9,7 @@ import UIKit
 import FirebaseAuth
 import UserNotifications
 
-class ProfileViewController: UIViewController {
+class ProfileViewController: UIViewController, TimePickerDelegate {
     
     private let profileImageView: UIImageView = {
         let imageView = UIImageView()
@@ -281,38 +281,12 @@ class ProfileViewController: UIViewController {
     private func configureMealTime(_ type: NotificationManager.NotificationType) {
         let savedTime = NotificationManager.shared.getSavedTime(for: type)
         
-        let alert = UIAlertController(title: "Configure \(type.displayName)", message: "Set the time for your \(type.displayName.lowercased()) reminder", preferredStyle: .alert)
-        
-        alert.addTextField { textField in
-            textField.placeholder = "Hour (0-23)"
-            textField.keyboardType = .numberPad
-            textField.text = "\(savedTime.hour)"
-        }
-        
-        alert.addTextField { textField in
-            textField.placeholder = "Minute (0-59)"
-            textField.keyboardType = .numberPad
-            textField.text = "\(savedTime.minute)"
-        }
-        
-        alert.addAction(UIAlertAction(title: "Save", style: .default) { [weak self] _ in
-            guard let hourText = alert.textFields?[0].text,
-                  let minuteText = alert.textFields?[1].text,
-                  let hour = Int(hourText),
-                  let minute = Int(minuteText),
-                  hour >= 0 && hour <= 23,
-                  minute >= 0 && minute <= 59 else {
-                self?.showAlert(title: "Invalid Time", message: "Please enter valid hour (0-23) and minute (0-59)")
-                return
-            }
-            
-            NotificationManager.shared.updateNotificationTime(for: type, hour: hour, minute: minute)
-            self?.showAlert(title: "Success", message: "\(type.displayName) reminder set for \(hour):\(String(format: "%02d", minute))")
-        })
-        
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        
-        present(alert, animated: true)
+        TimePickerViewController.present(
+            for: type,
+            currentTime: savedTime,
+            from: self,
+            delegate: self
+        )
     }
     
     private func testNotification() {
@@ -337,6 +311,27 @@ class ProfileViewController: UIViewController {
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         
         present(alert, animated: true)
+    }
+    
+    // MARK: - TimePickerDelegate
+    
+    func timePicker(_ picker: TimePickerViewController, didSelectTime hour: Int, minute: Int) {
+        // Find the meal type from the picker
+        guard let mealType = picker.mealType else {
+            print("Error: mealType is nil")
+            return
+        }
+        
+        // Update the notification time
+        NotificationManager.shared.updateNotificationTime(for: mealType, hour: hour, minute: minute)
+        
+        // Show success message
+        let timeString = String(format: "%d:%02d", hour, minute)
+        showAlert(title: "Success", message: "\(mealType.displayName) reminder set for \(timeString)")
+    }
+    
+    func timePickerDidCancel(_ picker: TimePickerViewController) {
+        // User cancelled, no action needed
     }
     
     @objc private func goalsButtonTapped() {
