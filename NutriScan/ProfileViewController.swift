@@ -7,15 +7,25 @@
 
 import UIKit
 import FirebaseAuth
+import FirebaseFirestore
 import UserNotifications
 
 class ProfileViewController: UIViewController, TimePickerDelegate {
+    
+    // MARK: - Properties
+    
+    private var userProfile: UserProfileModel?
+    private var profileListener: ListenerRegistration?
     
     private let profileImageView: UIImageView = {
         let imageView = UIImageView()
         imageView.image = UIImage(systemName: "person.circle.fill")
         imageView.tintColor = .systemGray4
-        imageView.contentMode = .scaleAspectFit
+        imageView.contentMode = .scaleAspectFill
+        imageView.layer.cornerRadius = 60
+        imageView.clipsToBounds = true
+        imageView.layer.borderWidth = 3
+        imageView.layer.borderColor = UIColor.systemBlue.cgColor
         imageView.translatesAutoresizingMaskIntoConstraints = false
         return imageView
     }()
@@ -50,6 +60,7 @@ class ProfileViewController: UIViewController, TimePickerDelegate {
         super.viewDidLoad()
         setupUI()
         loadUserData()
+        startProfileListener()
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -57,13 +68,17 @@ class ProfileViewController: UIViewController, TimePickerDelegate {
         loadUserData()
     }
     
+    deinit {
+        profileListener?.remove()
+    }
+    
     private func setupUI() {
         view.backgroundColor = .systemBackground
         title = "Profile"
         
-        // Create settings button
+        // Create profile settings button
         let settingsButton = UIButton(type: .system)
-        settingsButton.setTitle("Settings", for: .normal)
+        settingsButton.setTitle("Profile Settings", for: .normal)
         settingsButton.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .medium)
         settingsButton.backgroundColor = .systemGray6
         settingsButton.layer.cornerRadius = 8
@@ -111,8 +126,8 @@ class ProfileViewController: UIViewController, TimePickerDelegate {
         NSLayoutConstraint.activate([
             profileImageView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
             profileImageView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            profileImageView.widthAnchor.constraint(equalToConstant: 100),
-            profileImageView.heightAnchor.constraint(equalToConstant: 100),
+            profileImageView.widthAnchor.constraint(equalToConstant: 120),
+            profileImageView.heightAnchor.constraint(equalToConstant: 120),
             
             nameLabel.topAnchor.constraint(equalTo: profileImageView.bottomAnchor, constant: 16),
             nameLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
@@ -179,12 +194,73 @@ class ProfileViewController: UIViewController, TimePickerDelegate {
         } else {
             providerLabel.text = ""
         }
+        
+        // Load profile image if available
+        if let profileImageURL = userProfile?.profileImageURL {
+            loadProfileImage(from: profileImageURL)
+        }
+    }
+    
+    private func startProfileListener() {
+        profileListener = FirestoreManager.shared.observeUserProfile { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let profile):
+                    self?.userProfile = profile
+                    self?.updateProfileDisplay()
+                case .failure(let error):
+                    print("Error observing user profile: \(error)")
+                }
+            }
+        }
+    }
+    
+    private func updateProfileDisplay() {
+        guard let profile = userProfile else { return }
+        
+        // Update display name if available
+        if let displayName = profile.displayName, !displayName.isEmpty {
+            nameLabel.text = displayName
+        }
+        
+        // Load profile image if available
+        if let profileImageURL = profile.profileImageURL, !profileImageURL.isEmpty {
+            loadProfileImage(from: profileImageURL)
+        } else {
+            // Reset to default image if no profile image
+            profileImageView.image = UIImage(systemName: "person.circle.fill")
+            profileImageView.tintColor = .systemGray4
+        }
+    }
+    
+    private func loadProfileImage(from imageData: String) {
+        // Check if it's a base64 string or URL
+        if imageData.hasPrefix("data:") || imageData.hasPrefix("http") {
+            // It's a URL, load from URL
+            guard let url = URL(string: imageData) else { return }
+            URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
+                guard let data = data, let image = UIImage(data: data) else { return }
+                DispatchQueue.main.async {
+                    self?.profileImageView.image = image
+                    self?.profileImageView.tintColor = .clear // Remove tint when showing real image
+                }
+            }.resume()
+        } else {
+            // It's base64 data
+            guard let data = Data(base64Encoded: imageData),
+                  let image = UIImage(data: data) else { return }
+            
+            DispatchQueue.main.async {
+                self.profileImageView.image = image
+                self.profileImageView.tintColor = .clear // Remove tint when showing real image
+            }
+        }
     }
     
     @objc private func settingsButtonTapped() {
-        let alert = UIAlertController(title: "Settings", message: "Settings functionality will be implemented here.", preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        present(alert, animated: true)
+        let settingsVC = ProfileSettingsViewController()
+        let navController = UINavigationController(rootViewController: settingsVC)
+        present(navController, animated: true)
     }
     
     @objc private func notificationButtonTapped() {

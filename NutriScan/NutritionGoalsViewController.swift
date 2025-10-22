@@ -190,6 +190,15 @@ class NutritionGoalsViewController: UIViewController {
         return button
     }()
     
+    private let calculateButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setTitle("Calculate Based on Profile", for: .normal)
+        button.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .medium)
+        button.setTitleColor(.systemGreen, for: .normal)
+        return button
+    }()
+    
     private let resetButton: UIButton = {
         let button = UIButton(type: .system)
         button.translatesAutoresizingMaskIntoConstraints = false
@@ -235,6 +244,7 @@ class NutritionGoalsViewController: UIViewController {
         contentView.addSubview(subtitleLabel)
         contentView.addSubview(goalsCard)
         contentView.addSubview(saveButton)
+        contentView.addSubview(calculateButton)
         contentView.addSubview(resetButton)
         contentView.addSubview(loadingIndicator)
         
@@ -343,7 +353,10 @@ class NutritionGoalsViewController: UIViewController {
             saveButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             saveButton.heightAnchor.constraint(equalToConstant: 50),
             
-            resetButton.topAnchor.constraint(equalTo: saveButton.bottomAnchor, constant: 16),
+            calculateButton.topAnchor.constraint(equalTo: saveButton.bottomAnchor, constant: 16),
+            calculateButton.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+            
+            resetButton.topAnchor.constraint(equalTo: calculateButton.bottomAnchor, constant: 16),
             resetButton.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
             resetButton.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -20),
             
@@ -355,6 +368,7 @@ class NutritionGoalsViewController: UIViewController {
     
     private func setupActions() {
         saveButton.addTarget(self, action: #selector(saveTapped), for: .touchUpInside)
+        calculateButton.addTarget(self, action: #selector(calculateTapped), for: .touchUpInside)
         resetButton.addTarget(self, action: #selector(resetTapped), for: .touchUpInside)
     }
     
@@ -421,6 +435,47 @@ class NutritionGoalsViewController: UIViewController {
         }
         
         saveGoals(calorieGoal: calorieGoal, proteinGoal: proteinGoal, carbsGoal: carbsGoal, fatGoal: fatGoal)
+    }
+    
+    @objc private func calculateTapped() {
+        // Load user profile and calculate recommended goals
+        FirestoreManager.shared.fetchUserProfile { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let profile):
+                    if let profile = profile,
+                       let height = profile.height,
+                       let weight = profile.weight {
+                        // Calculate goals based on user profile
+                        FirestoreManager.shared.calculateRecommendedGoals(
+                            height: height,
+                            weight: weight,
+                            activityLevel: profile.activityLevel
+                        ) { result in
+                            DispatchQueue.main.async {
+                                switch result {
+                                case .success(let recommendedGoals):
+                                    self?.populateFields(with: recommendedGoals)
+                                    self?.showAlert(
+                                        title: "Goals Calculated",
+                                        message: "Goals have been calculated based on your profile:\n• Height: \(profile.heightString ?? "N/A")\n• Weight: \(profile.weightString ?? "N/A")\n• Activity Level: \(profile.activityLevel.displayName)"
+                                    )
+                                case .failure(let error):
+                                    self?.showAlert(title: "Error", message: "Failed to calculate goals: \(error.localizedDescription)")
+                                }
+                            }
+                        }
+                    } else {
+                        self?.showAlert(
+                            title: "Profile Incomplete",
+                            message: "Please complete your profile (height, weight, and activity level) in Profile Settings to calculate personalized nutrition goals."
+                        )
+                    }
+                case .failure(let error):
+                    self?.showAlert(title: "Error", message: "Failed to load profile: \(error.localizedDescription)")
+                }
+            }
+        }
     }
     
     @objc private func resetTapped() {
