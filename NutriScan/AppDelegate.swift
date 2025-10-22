@@ -10,6 +10,7 @@ import CoreData
 @preconcurrency import FirebaseCore
 import FirebaseAuth
 import GoogleSignIn
+import UserNotifications
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -22,6 +23,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         _ = PersistenceController.shared
         
         // Firestore is automatically initialized with FirebaseApp.configure()
+        
+        // Request notification permission
+        requestNotificationPermission()
         
         return true
     }
@@ -50,6 +54,24 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func applicationWillTerminate(_ application: UIApplication) {
         // Called when the application is about to terminate. Save data if appropriate.
         PersistenceController.shared.save()
+    }
+    
+    // MARK: - Notification Permission
+    
+    private func requestNotificationPermission() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            if let error = error {
+                print("Notification permission error: \(error)")
+            } else if granted {
+                print("Notification permission granted")
+                // Set up default notification settings
+                DispatchQueue.main.async {
+                    NotificationManager.shared.setupDefaultNotifications()
+                }
+            } else {
+                print("Notification permission denied")
+            }
+        }
     }
 }
 
