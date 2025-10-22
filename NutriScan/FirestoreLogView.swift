@@ -24,16 +24,11 @@ struct FirestoreLogView: View {
     }
     
     var filteredEntries: [FoodEntryModel] {
-        // Filter by date
-        let entries = foodEntries.filter { entry in
-            return Calendar.current.isDate(entry.date, inSameDayAs: selectedDate)
-        }
-        
-        // Filter by search text
+        // Filter by search text only (date filtering is done server-side)
         if searchText.isEmpty {
-            return entries
+            return foodEntries
         } else {
-            return entries.filter { entry in
+            return foodEntries.filter { entry in
                 entry.name.localizedCaseInsensitiveContains(searchText)
             }
         }
@@ -266,14 +261,16 @@ struct FirestoreLogView: View {
         
         isLoading = true
         
-        FirestoreManager.shared.fetchFoodEntries { result in
+        FirestoreManager.shared.fetchFoodEntries(for: selectedDate) { result in
             DispatchQueue.main.async {
                 isLoading = false
                 
                 switch result {
                 case .success(let entries):
+                    print("✅ Loaded \(entries.count) food entries for \(selectedDate)")
                     self.foodEntries = entries
                 case .failure(let error):
+                    print("❌ Error loading food entries: \(error.localizedDescription)")
                     self.errorMessage = error.localizedDescription
                     self.showingError = true
                 }

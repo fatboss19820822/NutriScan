@@ -211,6 +211,11 @@ class HomeViewController: UIViewController {
     
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
+        // Don't remove listener here - keep it active for real-time updates
+    }
+    
+    deinit {
+        // Clean up listener when view controller is deallocated
         goalsListener?.remove()
     }
     
@@ -361,14 +366,18 @@ class HomeViewController: UIViewController {
     }
     
     private func loadNutritionGoals() {
+        // Remove existing listener if any
+        goalsListener?.remove()
+        
         goalsListener = FirestoreManager.shared.observeNutritionGoals { [weak self] result in
             DispatchQueue.main.async {
                 switch result {
                 case .success(let goals):
+                    print("✅ Nutrition goals updated: \(goals?.dailyCalorieGoal ?? 0) calories")
                     self?.nutritionGoals = goals
                     self?.updateSummaryCard()
                 case .failure(let error):
-                    print("Error loading nutrition goals: \(error.localizedDescription)")
+                    print("❌ Error loading nutrition goals: \(error.localizedDescription)")
                     // Use default goals if loading fails
                     self?.nutritionGoals = NutritionGoalsModel.defaultGoals
                     self?.updateSummaryCard()

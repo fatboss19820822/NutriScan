@@ -14,9 +14,7 @@ class FirestoreManager {
     static let shared = FirestoreManager()
     
     private let db = Firestore.firestore()
-    private let foodEntriesCollection = "foodEntries"
-    private let nutritionGoalsCollection = "nutritionGoals"
-    private let userProfilesCollection = "userProfiles"
+    private let usersCollection = "users"
     
     private init() {
         // Configure Firestore settings
@@ -53,8 +51,6 @@ class FirestoreManager {
         let entryId = UUID().uuidString
         
         let data: [String: Any] = [
-            "id": entryId,
-            "userId": userId,
             "name": name,
             "barcode": barcode,
             "calories": calories,
@@ -65,7 +61,11 @@ class FirestoreManager {
             "createdAt": FieldValue.serverTimestamp()
         ]
         
-        db.collection(foodEntriesCollection).document(entryId).setData(data) { error in
+        db.collection(usersCollection)
+            .document(userId)
+            .collection("foodEntries")
+            .document(entryId)
+            .setData(data) { error in
             if let error = error {
                 completion(.failure(error))
             } else {
@@ -84,8 +84,9 @@ class FirestoreManager {
             return
         }
         
-        db.collection(foodEntriesCollection)
-            .whereField("userId", isEqualTo: userId)
+        db.collection(usersCollection)
+            .document(userId)
+            .collection("foodEntries")
             .order(by: "date", descending: true)
             .getDocuments { snapshot, error in
                 if let error = error {
@@ -99,7 +100,20 @@ class FirestoreManager {
                 }
                 
                 let entries = documents.compactMap { doc -> FoodEntryModel? in
-                    return try? doc.data(as: FoodEntryModel.self)
+                    let data = doc.data()
+                    return FoodEntryModel(
+                        id: doc.documentID,
+                        userId: userId,
+                        name: data["name"] as? String ?? "",
+                        barcode: data["barcode"] as? String ?? "",
+                        calories: data["calories"] as? Double ?? 0,
+                        protein: data["protein"] as? Double ?? 0,
+                        carbs: data["carbs"] as? Double ?? 0,
+                        fat: data["fat"] as? Double ?? 0,
+                        date: (data["date"] as? Timestamp)?.dateValue() ?? Date(),
+                        createdAt: (data["createdAt"] as? Timestamp)?.dateValue(),
+                        updatedAt: (data["updatedAt"] as? Timestamp)?.dateValue()
+                    )
                 }
                 
                 completion(.success(entries))
@@ -118,8 +132,9 @@ class FirestoreManager {
         let startOfDay = calendar.startOfDay(for: date)
         let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? date
         
-        db.collection(foodEntriesCollection)
-            .whereField("userId", isEqualTo: userId)
+        db.collection(usersCollection)
+            .document(userId)
+            .collection("foodEntries")
             .whereField("date", isGreaterThanOrEqualTo: Timestamp(date: startOfDay))
             .whereField("date", isLessThan: Timestamp(date: endOfDay))
             .order(by: "date", descending: true)
@@ -135,7 +150,20 @@ class FirestoreManager {
                 }
                 
                 let entries = documents.compactMap { doc -> FoodEntryModel? in
-                    return try? doc.data(as: FoodEntryModel.self)
+                    let data = doc.data()
+                    return FoodEntryModel(
+                        id: doc.documentID,
+                        userId: userId,
+                        name: data["name"] as? String ?? "",
+                        barcode: data["barcode"] as? String ?? "",
+                        calories: data["calories"] as? Double ?? 0,
+                        protein: data["protein"] as? Double ?? 0,
+                        carbs: data["carbs"] as? Double ?? 0,
+                        fat: data["fat"] as? Double ?? 0,
+                        date: (data["date"] as? Timestamp)?.dateValue() ?? Date(),
+                        createdAt: (data["createdAt"] as? Timestamp)?.dateValue(),
+                        updatedAt: (data["updatedAt"] as? Timestamp)?.dateValue()
+                    )
                 }
                 
                 completion(.success(entries))
@@ -150,8 +178,9 @@ class FirestoreManager {
             return nil
         }
         
-        let listener = db.collection(foodEntriesCollection)
-            .whereField("userId", isEqualTo: userId)
+        let listener = db.collection(usersCollection)
+            .document(userId)
+            .collection("foodEntries")
             .order(by: "date", descending: true)
             .addSnapshotListener { snapshot, error in
                 if let error = error {
@@ -165,7 +194,20 @@ class FirestoreManager {
                 }
                 
                 let entries = documents.compactMap { doc -> FoodEntryModel? in
-                    return try? doc.data(as: FoodEntryModel.self)
+                    let data = doc.data()
+                    return FoodEntryModel(
+                        id: doc.documentID,
+                        userId: userId,
+                        name: data["name"] as? String ?? "",
+                        barcode: data["barcode"] as? String ?? "",
+                        calories: data["calories"] as? Double ?? 0,
+                        protein: data["protein"] as? Double ?? 0,
+                        carbs: data["carbs"] as? Double ?? 0,
+                        fat: data["fat"] as? Double ?? 0,
+                        date: (data["date"] as? Timestamp)?.dateValue() ?? Date(),
+                        createdAt: (data["createdAt"] as? Timestamp)?.dateValue(),
+                        updatedAt: (data["updatedAt"] as? Timestamp)?.dateValue()
+                    )
                 }
                 
                 completion(.success(entries))
@@ -188,6 +230,12 @@ class FirestoreManager {
         date: Date?,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
+        guard let userId = currentUserId else {
+            completion(.failure(NSError(domain: "FirestoreManager", code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "No user logged in"])))
+            return
+        }
+        
         var data: [String: Any] = [:]
         
         if let name = name { data["name"] = name }
@@ -200,7 +248,11 @@ class FirestoreManager {
         
         data["updatedAt"] = FieldValue.serverTimestamp()
         
-        db.collection(foodEntriesCollection).document(id).updateData(data) { error in
+        db.collection(usersCollection)
+            .document(userId)
+            .collection("foodEntries")
+            .document(id)
+            .updateData(data) { error in
             if let error = error {
                 completion(.failure(error))
             } else {
@@ -213,7 +265,17 @@ class FirestoreManager {
     
     /// Delete a food entry
     func deleteFoodEntry(id: String, completion: @escaping (Result<Void, Error>) -> Void) {
-        db.collection(foodEntriesCollection).document(id).delete { error in
+        guard let userId = currentUserId else {
+            completion(.failure(NSError(domain: "FirestoreManager", code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "No user logged in"])))
+            return
+        }
+        
+        db.collection(usersCollection)
+            .document(userId)
+            .collection("foodEntries")
+            .document(id)
+            .delete { error in
             if let error = error {
                 completion(.failure(error))
             } else {
@@ -230,8 +292,9 @@ class FirestoreManager {
             return
         }
         
-        db.collection(foodEntriesCollection)
-            .whereField("userId", isEqualTo: userId)
+        db.collection(usersCollection)
+            .document(userId)
+            .collection("foodEntries")
             .getDocuments { snapshot, error in
                 if let error = error {
                     completion(.failure(error))
@@ -266,8 +329,9 @@ class FirestoreManager {
             return
         }
         
-        db.collection(foodEntriesCollection)
-            .whereField("userId", isEqualTo: userId)
+        db.collection(usersCollection)
+            .document(userId)
+            .collection("foodEntries")
             .whereField("date", isGreaterThanOrEqualTo: Timestamp(date: startDate))
             .whereField("date", isLessThanOrEqualTo: Timestamp(date: endDate))
             .getDocuments { snapshot, error in
@@ -307,7 +371,6 @@ class FirestoreManager {
         }
         
         let data: [String: Any] = [
-            "userId": userId,
             "dailyCalorieGoal": calorieGoal,
             "dailyProteinGoal": proteinGoal,
             "dailyCarbsGoal": carbsGoal,
@@ -315,8 +378,12 @@ class FirestoreManager {
             "updatedAt": FieldValue.serverTimestamp()
         ]
         
-        // Use userId as document ID to ensure only one goals document per user
-        db.collection(nutritionGoalsCollection).document(userId).setData(data, merge: true) { error in
+        // Store goals as a single document in the user's goals subcollection
+        db.collection(usersCollection)
+            .document(userId)
+            .collection("goals")
+            .document("nutrition")
+            .setData(data, merge: true) { error in
             if let error = error {
                 completion(.failure(error))
             } else {
@@ -372,7 +439,11 @@ class FirestoreManager {
             return
         }
         
-        db.collection(nutritionGoalsCollection).document(userId).getDocument { document, error in
+        db.collection(usersCollection)
+            .document(userId)
+            .collection("goals")
+            .document("nutrition")
+            .getDocument { document, error in
             if let error = error {
                 completion(.failure(error))
                 return
@@ -392,7 +463,16 @@ class FirestoreManager {
             }
             
             do {
-                let goals = try document.data(as: NutritionGoalsModel.self)
+                let data = document.data() ?? [:]
+                let goals = NutritionGoalsModel(
+                    userId: userId,
+                    dailyCalorieGoal: data["dailyCalorieGoal"] as? Double ?? 2000,
+                    dailyProteinGoal: data["dailyProteinGoal"] as? Double ?? 150,
+                    dailyCarbsGoal: data["dailyCarbsGoal"] as? Double ?? 250,
+                    dailyFatGoal: data["dailyFatGoal"] as? Double ?? 65,
+                    createdAt: nil,
+                    updatedAt: data["updatedAt"] as? Date
+                )
                 completion(.success(goals))
             } catch {
                 completion(.failure(error))
@@ -408,7 +488,11 @@ class FirestoreManager {
             return nil
         }
         
-        let listener = db.collection(nutritionGoalsCollection).document(userId).addSnapshotListener { document, error in
+        let listener = db.collection(usersCollection)
+            .document(userId)
+            .collection("goals")
+            .document("nutrition")
+            .addSnapshotListener { document, error in
             if let error = error {
                 completion(.failure(error))
                 return
@@ -428,7 +512,16 @@ class FirestoreManager {
             }
             
             do {
-                let goals = try document.data(as: NutritionGoalsModel.self)
+                let data = document.data() ?? [:]
+                let goals = NutritionGoalsModel(
+                    userId: userId,
+                    dailyCalorieGoal: data["dailyCalorieGoal"] as? Double ?? 2000,
+                    dailyProteinGoal: data["dailyProteinGoal"] as? Double ?? 150,
+                    dailyCarbsGoal: data["dailyCarbsGoal"] as? Double ?? 250,
+                    dailyFatGoal: data["dailyFatGoal"] as? Double ?? 65,
+                    createdAt: nil,
+                    updatedAt: data["updatedAt"] as? Date
+                )
                 completion(.success(goals))
             } catch {
                 completion(.failure(error))
@@ -456,7 +549,6 @@ class FirestoreManager {
         }
         
         let data: [String: Any] = [
-            "userId": userId,
             "displayName": displayName as Any,
             "height": height as Any,
             "weight": weight as Any,
@@ -465,8 +557,12 @@ class FirestoreManager {
             "updatedAt": FieldValue.serverTimestamp()
         ]
         
-        // Use userId as document ID to ensure only one profile per user
-        db.collection(userProfilesCollection).document(userId).setData(data, merge: true) { error in
+        // Store profile as a single document in the user's profile subcollection
+        db.collection(usersCollection)
+            .document(userId)
+            .collection("profile")
+            .document("main")
+            .setData(data, merge: true) { error in
             if let error = error {
                 completion(.failure(error))
             } else {
@@ -483,7 +579,11 @@ class FirestoreManager {
             return
         }
         
-        db.collection(userProfilesCollection).document(userId).getDocument { document, error in
+        db.collection(usersCollection)
+            .document(userId)
+            .collection("profile")
+            .document("main")
+            .getDocument { document, error in
             if let error = error {
                 completion(.failure(error))
                 return
@@ -494,12 +594,25 @@ class FirestoreManager {
                 return
             }
             
-            do {
-                let profile = try document.data(as: UserProfileModel.self)
-                completion(.success(profile))
-            } catch {
-                completion(.failure(error))
-            }
+                do {
+                    let data = document.data() ?? [:]
+                    let activityLevelString = data["activityLevel"] as? String ?? "moderately_active"
+                    let activityLevel = ActivityLevel(rawValue: activityLevelString) ?? .moderatelyActive
+                    
+                    let profile = UserProfileModel(
+                        userId: userId,
+                        displayName: data["displayName"] as? String,
+                        height: data["height"] as? Double,
+                        weight: data["weight"] as? Double,
+                        activityLevel: activityLevel,
+                        profileImageURL: data["profileImageURL"] as? String,
+                        createdAt: nil,
+                        updatedAt: data["updatedAt"] as? Date
+                    )
+                    completion(.success(profile))
+                } catch {
+                    completion(.failure(error))
+                }
         }
     }
     
@@ -511,7 +624,11 @@ class FirestoreManager {
             return nil
         }
         
-        let listener = db.collection(userProfilesCollection).document(userId).addSnapshotListener { document, error in
+        let listener = db.collection(usersCollection)
+            .document(userId)
+            .collection("profile")
+            .document("main")
+            .addSnapshotListener { document, error in
             if let error = error {
                 completion(.failure(error))
                 return
@@ -522,12 +639,25 @@ class FirestoreManager {
                 return
             }
             
-            do {
-                let profile = try document.data(as: UserProfileModel.self)
-                completion(.success(profile))
-            } catch {
-                completion(.failure(error))
-            }
+                do {
+                    let data = document.data() ?? [:]
+                    let activityLevelString = data["activityLevel"] as? String ?? "moderately_active"
+                    let activityLevel = ActivityLevel(rawValue: activityLevelString) ?? .moderatelyActive
+                    
+                    let profile = UserProfileModel(
+                        userId: userId,
+                        displayName: data["displayName"] as? String,
+                        height: data["height"] as? Double,
+                        weight: data["weight"] as? Double,
+                        activityLevel: activityLevel,
+                        profileImageURL: data["profileImageURL"] as? String,
+                        createdAt: nil,
+                        updatedAt: data["updatedAt"] as? Date
+                    )
+                    completion(.success(profile))
+                } catch {
+                    completion(.failure(error))
+                }
         }
         
         return listener
@@ -558,7 +688,11 @@ class FirestoreManager {
         
         data["updatedAt"] = FieldValue.serverTimestamp()
         
-        db.collection(userProfilesCollection).document(userId).updateData(data) { error in
+        db.collection(usersCollection)
+            .document(userId)
+            .collection("profile")
+            .document("main")
+            .updateData(data) { error in
             if let error = error {
                 completion(.failure(error))
             } else {
