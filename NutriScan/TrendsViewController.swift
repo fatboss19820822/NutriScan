@@ -540,62 +540,102 @@ struct CalorieChartView: View {
 struct MacroChartView: View {
     let data: [DailyMacroData]
     
+    // Calculate total macros from all data points
+    private var totalMacros: (protein: Double, carbs: Double, fat: Double) {
+        let totals = data.reduce((protein: 0.0, carbs: 0.0, fat: 0.0)) { result, item in
+            (result.protein + item.protein, result.carbs + item.carbs, result.fat + item.fat)
+        }
+        return totals
+    }
+    
+    // Create pie chart data
+    private var pieChartData: [MacroPieData] {
+        let totals = totalMacros
+        let total = totals.protein + totals.carbs + totals.fat
+        
+        guard total > 0 else { return [] }
+        
+        return [
+            MacroPieData(name: "Protein", value: totals.protein, color: Color.red),
+            MacroPieData(name: "Carbs", value: totals.carbs, color: Color.orange),
+            MacroPieData(name: "Fat", value: totals.fat, color: Color.yellow)
+        ].filter { $0.value > 0 }
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Macronutrients Breakdown")
                 .font(.headline)
             
-            if data.isEmpty {
+            if data.isEmpty || pieChartData.isEmpty {
                 VStack {
                     Spacer()
                     Text("No data available")
                         .foregroundColor(.secondary)
                     Spacer()
                 }
+                .frame(height: 220)
             } else {
-                Chart {
-                    ForEach(data) { item in
-                        BarMark(
-                            x: .value("Date", item.date, unit: .day),
-                            y: .value("Grams", item.protein),
-                            stacking: .standard
+                HStack(spacing: 20) {
+                    // Pie Chart
+                    Chart(pieChartData) { item in
+                        SectorMark(
+                            angle: .value("Grams", item.value),
+                            innerRadius: .ratio(0.4),
+                            angularInset: 2
                         )
-                        .foregroundStyle(Color.red)
-                        .position(by: .value("Nutrient", "Protein"))
-                        
-                        BarMark(
-                            x: .value("Date", item.date, unit: .day),
-                            y: .value("Grams", item.carbs),
-                            stacking: .standard
-                        )
-                        .foregroundStyle(Color.orange)
-                        .position(by: .value("Nutrient", "Carbs"))
-                        
-                        BarMark(
-                            x: .value("Date", item.date, unit: .day),
-                            y: .value("Grams", item.fat),
-                            stacking: .standard
-                        )
-                        .foregroundStyle(Color.yellow)
-                        .position(by: .value("Nutrient", "Fat"))
+                        .foregroundStyle(item.color)
+                        .opacity(0.8)
                     }
-                }
-                .chartXAxis {
-                    AxisMarks(values: .stride(by: .day)) { value in
-                        AxisGridLine()
-                        AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                    .frame(width: 160, height: 160)
+                    
+                    // Legend with values
+                    VStack(alignment: .leading, spacing: 12) {
+                        ForEach(pieChartData) { item in
+                            HStack(spacing: 8) {
+                                Circle()
+                                    .fill(item.color)
+                                    .frame(width: 12, height: 12)
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(item.name)
+                                        .font(.caption)
+                                        .fontWeight(.medium)
+                                    Text("\(item.value, specifier: "%.1f")g")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+                                
+                                Spacer()
+                            }
+                        }
+                        
+                        Spacer()
+                        
+                        // Total calories from macros
+                        let totalCalories = (totalMacros.protein * 4) + (totalMacros.carbs * 4) + (totalMacros.fat * 9)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Total Calories")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                            Text("\(totalCalories, specifier: "%.0f") kcal")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
                     }
+                    
+                    Spacer()
                 }
-                .chartYAxis {
-                    AxisMarks(position: .leading)
-                }
-                .chartForegroundStyleScale([
-                    "Protein": Color.red,
-                    "Carbs": Color.orange,
-                    "Fat": Color.yellow
-                ])
                 .frame(height: 220)
             }
         }
     }
+}
+
+// Data model for pie chart
+struct MacroPieData: Identifiable {
+    let id = UUID()
+    let name: String
+    let value: Double
+    let color: Color
 }
