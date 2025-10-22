@@ -107,7 +107,11 @@ class TimePickerViewController: UIViewController {
         timePickerVC.modalPresentationStyle = .overFullScreen
         timePickerVC.modalTransitionStyle = .crossDissolve
         
-        viewController.present(timePickerVC, animated: true)
+        // Present without animation to prevent flashing
+        viewController.present(timePickerVC, animated: false) {
+            // Start animation after presentation
+            timePickerVC.animateIn()
+        }
     }
     
     override func viewDidLoad() {
@@ -115,11 +119,16 @@ class TimePickerViewController: UIViewController {
         setupUI()
         setupTimePicker()
         setupActions()
+        
+        // Set initial state for animation
+        containerView.transform = CGAffineTransform(scaleX: 0.8, y: 0.8)
+        containerView.alpha = 0
+        backgroundView.alpha = 0
     }
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        animateIn()
+        // Animation is now handled in the presentation completion
     }
     
     // MARK: - UI Setup
@@ -242,12 +251,8 @@ class TimePickerViewController: UIViewController {
     
     // MARK: - Animations
     
-    private func animateIn() {
-        containerView.transform = CGAffineTransform(scaleX: 0.8, y: 0.8)
-        containerView.alpha = 0
-        backgroundView.alpha = 0
-        
-        UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0, options: .curveEaseOut) {
+    func animateIn() {
+        UIView.animate(withDuration: 0.25, delay: 0, usingSpringWithDamping: 0.9, initialSpringVelocity: 0.5, options: [.curveEaseOut, .allowUserInteraction]) {
             self.containerView.transform = .identity
             self.containerView.alpha = 1
             self.backgroundView.alpha = 1
