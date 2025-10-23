@@ -86,19 +86,10 @@ extension FoodEntryModel {
         return String(format: "%.0fg", fat)
     }
     
-    /// Returns meal category based on time of day
+    /// Returns meal category based on time of day using user preferences
     var mealCategory: String {
         let hour = Calendar.current.component(.hour, from: date)
-        switch hour {
-        case 5..<11:
-            return "Breakfast"
-        case 11..<16:
-            return "Lunch"
-        case 16..<22:
-            return "Dinner"
-        default:
-            return "Snacks"
-        }
+        return PreferencesManager.shared.getMealCategory(for: hour)
     }
 }
 

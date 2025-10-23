@@ -104,6 +104,15 @@ class ProfileViewController: UIViewController, TimePickerDelegate {
         goalsButton.translatesAutoresizingMaskIntoConstraints = false
         goalsButton.addTarget(self, action: #selector(goalsButtonTapped), for: .touchUpInside)
         
+        // Create app preferences button
+        let preferencesButton = UIButton(type: .system)
+        preferencesButton.setTitle("⚙️ App Preferences", for: .normal)
+        preferencesButton.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .medium)
+        preferencesButton.backgroundColor = .systemGray6
+        preferencesButton.layer.cornerRadius = 8
+        preferencesButton.translatesAutoresizingMaskIntoConstraints = false
+        preferencesButton.addTarget(self, action: #selector(preferencesButtonTapped), for: .touchUpInside)
+        
         // Create logout button
         let logoutButton = UIButton(type: .system)
         logoutButton.setTitle("Log Out", for: .normal)
@@ -121,6 +130,7 @@ class ProfileViewController: UIViewController, TimePickerDelegate {
         view.addSubview(settingsButton)
         view.addSubview(notificationButton)
         view.addSubview(goalsButton)
+        view.addSubview(preferencesButton)
         view.addSubview(logoutButton)
         
         NSLayoutConstraint.activate([
@@ -156,7 +166,12 @@ class ProfileViewController: UIViewController, TimePickerDelegate {
             goalsButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             goalsButton.heightAnchor.constraint(equalToConstant: 44),
             
-            logoutButton.topAnchor.constraint(equalTo: goalsButton.bottomAnchor, constant: 40),
+            preferencesButton.topAnchor.constraint(equalTo: goalsButton.bottomAnchor, constant: 16),
+            preferencesButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            preferencesButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            preferencesButton.heightAnchor.constraint(equalToConstant: 44),
+            
+            logoutButton.topAnchor.constraint(equalTo: preferencesButton.bottomAnchor, constant: 40),
             logoutButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             logoutButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             logoutButton.heightAnchor.constraint(equalToConstant: 50)
@@ -413,6 +428,12 @@ class ProfileViewController: UIViewController, TimePickerDelegate {
     @objc private func goalsButtonTapped() {
         let goalsVC = NutritionGoalsViewController()
         let navController = UINavigationController(rootViewController: goalsVC)
+        present(navController, animated: true)
+    }
+    
+    @objc private func preferencesButtonTapped() {
+        let preferencesVC = AppPreferencesViewController()
+        let navController = UINavigationController(rootViewController: preferencesVC)
         present(navController, animated: true)
     }
     

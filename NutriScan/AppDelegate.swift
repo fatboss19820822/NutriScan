@@ -22,6 +22,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Initialize Core Data (keeping for backwards compatibility)
         _ = PersistenceController.shared
         
+        // Initialize Preferences Manager
+        _ = PreferencesManager.shared
+        
         // Firestore is automatically initialized with FirebaseApp.configure()
         
         // Request notification permission

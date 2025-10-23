@@ -290,6 +290,7 @@ class ProfileSettingsViewController: UIViewController {
         guard let profile = userProfile else { return }
         
         displayNameTextField.text = profile.displayName
+        
         heightTextField.text = profile.height != nil ? String(format: "%.0f", profile.height!) : ""
         weightTextField.text = profile.weight != nil ? String(format: "%.1f", profile.weight!) : ""
         

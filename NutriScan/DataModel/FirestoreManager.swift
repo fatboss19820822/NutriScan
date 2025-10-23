@@ -700,5 +700,147 @@ class FirestoreManager {
             }
         }
     }
+    
+    // MARK: - App Preferences
+    
+    /// Save app preferences to Firestore
+    func saveAppPreferences(_ preferences: AppPreferencesModel, completion: @escaping (Result<Void, Error>) -> Void) {
+        guard let userId = currentUserId else {
+            completion(.failure(NSError(domain: "FirestoreManager", code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "No user logged in"])))
+            return
+        }
+        
+        var data: [String: Any] = [
+            "userId": userId,
+            "theme": preferences.theme.rawValue,
+            "defaultMealTimes": [
+                "breakfastStart": preferences.defaultMealTimes.breakfastStart,
+                "breakfastEnd": preferences.defaultMealTimes.breakfastEnd,
+                "lunchStart": preferences.defaultMealTimes.lunchStart,
+                "lunchEnd": preferences.defaultMealTimes.lunchEnd,
+                "dinnerStart": preferences.defaultMealTimes.dinnerStart,
+                "dinnerEnd": preferences.defaultMealTimes.dinnerEnd,
+                "snackStart": preferences.defaultMealTimes.snackStart,
+                "snackEnd": preferences.defaultMealTimes.snackEnd
+            ],
+            "updatedAt": FieldValue.serverTimestamp()
+        ]
+        
+        if let createdAt = preferences.createdAt {
+            data["createdAt"] = createdAt
+        } else {
+            data["createdAt"] = FieldValue.serverTimestamp()
+        }
+        
+        db.collection(usersCollection)
+            .document(userId)
+            .collection("preferences")
+            .document("app")
+            .setData(data, merge: true) { error in
+            if let error = error {
+                completion(.failure(error))
+            } else {
+                completion(.success(()))
+            }
+        }
+    }
+    
+    /// Fetch app preferences from Firestore
+    func fetchAppPreferences(completion: @escaping (Result<AppPreferencesModel?, Error>) -> Void) {
+        guard let userId = currentUserId else {
+            completion(.failure(NSError(domain: "FirestoreManager", code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "No user logged in"])))
+            return
+        }
+        
+        db.collection(usersCollection)
+            .document(userId)
+            .collection("preferences")
+            .document("app")
+            .getDocument { document, error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+            
+            guard let document = document, document.exists,
+                  let data = document.data() else {
+                completion(.success(nil))
+                return
+            }
+            
+            do {
+                let preferences = try self.parseAppPreferences(from: data)
+                completion(.success(preferences))
+            } catch {
+                completion(.failure(error))
+            }
+        }
+    }
+    
+    /// Observe app preferences changes
+    func observeAppPreferences(completion: @escaping (Result<AppPreferencesModel?, Error>) -> Void) -> ListenerRegistration {
+        guard let userId = currentUserId else {
+            completion(.failure(NSError(domain: "FirestoreManager", code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "No user logged in"])))
+            return db.collection("dummy").addSnapshotListener { _, _ in }
+        }
+        
+        return db.collection(usersCollection)
+            .document(userId)
+            .collection("preferences")
+            .document("app")
+            .addSnapshotListener { document, error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+            
+            guard let document = document, document.exists,
+                  let data = document.data() else {
+                completion(.success(nil))
+                return
+            }
+            
+            do {
+                let preferences = try self.parseAppPreferences(from: data)
+                completion(.success(preferences))
+            } catch {
+                completion(.failure(error))
+            }
+        }
+    }
+    
+    /// Parse app preferences from Firestore data
+    private func parseAppPreferences(from data: [String: Any]) throws -> AppPreferencesModel {
+        guard let userId = data["userId"] as? String,
+              let themeString = data["theme"] as? String,
+              let theme = AppTheme(rawValue: themeString),
+              let mealTimesData = data["defaultMealTimes"] as? [String: Any] else {
+            throw NSError(domain: "FirestoreManager", code: -1,
+                         userInfo: [NSLocalizedDescriptionKey: "Invalid preferences data"])
+        }
+        
+        let mealTimes = MealTimes(
+            breakfastStart: mealTimesData["breakfastStart"] as? Int ?? 6,
+            breakfastEnd: mealTimesData["breakfastEnd"] as? Int ?? 11,
+            lunchStart: mealTimesData["lunchStart"] as? Int ?? 11,
+            lunchEnd: mealTimesData["lunchEnd"] as? Int ?? 16,
+            dinnerStart: mealTimesData["dinnerStart"] as? Int ?? 16,
+            dinnerEnd: mealTimesData["dinnerEnd"] as? Int ?? 21,
+            snackStart: mealTimesData["snackStart"] as? Int ?? 21,
+            snackEnd: mealTimesData["snackEnd"] as? Int ?? 6
+        )
+        
+        return AppPreferencesModel(
+            id: nil,
+            userId: userId,
+            theme: theme,
+            defaultMealTimes: mealTimes,
+            createdAt: data["createdAt"] as? Date,
+            updatedAt: data["updatedAt"] as? Date
+        )
+    }
 }
 
