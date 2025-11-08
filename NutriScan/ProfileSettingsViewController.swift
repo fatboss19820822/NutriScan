@@ -504,6 +504,13 @@ class ProfileSettingsViewController: UIViewController {
         activityLevel: ActivityLevel,
         profileImageURL: String?
     ) {
+        print("🔄 ProfileSettingsViewController: Starting profile save...")
+        print("🔄 ProfileSettingsViewController: DisplayName: \(displayName ?? "nil")")
+        print("🔄 ProfileSettingsViewController: Height: \(height ?? 0)")
+        print("🔄 ProfileSettingsViewController: Weight: \(weight ?? 0)")
+        print("🔄 ProfileSettingsViewController: ActivityLevel: \(activityLevel.rawValue)")
+        print("🔄 ProfileSettingsViewController: ProfileImageURL: \(profileImageURL != nil ? "Present" : "nil")")
+        
         FirestoreManager.shared.saveUserProfile(
             displayName: displayName,
             height: height,
@@ -514,10 +521,12 @@ class ProfileSettingsViewController: UIViewController {
             DispatchQueue.main.async {
                 switch result {
                 case .success:
+                    print("✅ ProfileSettingsViewController: Profile saved successfully")
                     self?.showAlert(title: "Success", message: "Profile updated successfully") {
                         self?.dismiss(animated: true)
                     }
                 case .failure(let error):
+                    print("❌ ProfileSettingsViewController: Failed to save profile: \(error)")
                     self?.showAlert(title: "Error", message: "Failed to save profile: \(error.localizedDescription)")
                 }
             }

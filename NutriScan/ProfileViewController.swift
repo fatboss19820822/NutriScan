@@ -273,6 +273,31 @@ class ProfileViewController: UIViewController, TimePickerDelegate {
     }
     
     @objc private func settingsButtonTapped() {
+        // Test Firestore connection first
+        testFirestoreConnection()
+        
+        // Then proceed with settings
+        let settingsVC = ProfileSettingsViewController()
+        settingsVC.modalPresentationStyle = .fullScreen
+        present(settingsVC, animated: true)
+    }
+    
+    private func testFirestoreConnection() {
+        FirestoreManager.shared.testFirestoreConnection { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let message):
+                    print("✅ Test Result: \(message)")
+                    // You can show an alert here if you want
+                case .failure(let error):
+                    print("❌ Test Failed: \(error)")
+                    // You can show an alert here if you want
+                }
+            }
+        }
+    }
+    
+    @objc private func settingsButtonTappedOriginal() {
         let settingsVC = ProfileSettingsViewController()
         let navController = UINavigationController(rootViewController: settingsVC)
         present(navController, animated: true)

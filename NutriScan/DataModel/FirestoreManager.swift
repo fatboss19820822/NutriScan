@@ -543,10 +543,13 @@ class FirestoreManager {
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
         guard let userId = currentUserId else {
+            print("❌ FirestoreManager: No user logged in - cannot save profile")
             completion(.failure(NSError(domain: "FirestoreManager", code: -1,
                 userInfo: [NSLocalizedDescriptionKey: "No user logged in"])))
             return
         }
+        
+        print("✅ FirestoreManager: Saving profile for user: \(userId)")
         
         let data: [String: Any] = [
             "displayName": displayName as Any,
@@ -558,14 +561,20 @@ class FirestoreManager {
         ]
         
         // Store profile as a single document in the user's profile subcollection
-        db.collection(usersCollection)
+        let profileRef = db.collection(usersCollection)
             .document(userId)
             .collection("profile")
             .document("main")
-            .setData(data, merge: true) { error in
+            
+        print("📝 FirestoreManager: Saving to path: users/\(userId)/profile/main")
+        print("📝 FirestoreManager: Data to save: \(data)")
+        
+        profileRef.setData(data, merge: true) { error in
             if let error = error {
+                print("❌ FirestoreManager: Error saving profile: \(error)")
                 completion(.failure(error))
             } else {
+                print("✅ FirestoreManager: Profile saved successfully")
                 completion(.success(()))
             }
         }
@@ -699,6 +708,38 @@ class FirestoreManager {
                 completion(.success(()))
             }
         }
+    }
+    
+    // MARK: - Testing Functions
+    
+    /// Test function to verify Firestore connection and user authentication
+    func testFirestoreConnection(completion: @escaping (Result<String, Error>) -> Void) {
+        guard let userId = currentUserId else {
+            print("❌ Test: No user logged in")
+            completion(.failure(NSError(domain: "FirestoreManager", code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "No user logged in"])))
+            return
+        }
+        
+        print("✅ Test: User authenticated with ID: \(userId)")
+        
+        // Test write operation
+        let testData: [String: Any] = [
+            "testField": "testValue",
+            "timestamp": FieldValue.serverTimestamp()
+        ]
+        
+        db.collection("test")
+            .document(userId)
+            .setData(testData) { error in
+                if let error = error {
+                    print("❌ Test: Failed to write test data: \(error)")
+                    completion(.failure(error))
+                } else {
+                    print("✅ Test: Successfully wrote test data to Firestore")
+                    completion(.success("Firestore connection working! User ID: \(userId)"))
+                }
+            }
     }
     
     // MARK: - App Preferences
