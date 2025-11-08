@@ -144,6 +144,24 @@ limitations under the License.
             website: URL(string: "https://github.com/google/promises")
         ),
         AcknowledgementItem(
+            title: "Open Food Facts API",
+            summary: "Global open food product database powering barcode lookups. CC BY-SA 4.0.",
+            detail: """
+Open Food Facts API
+
+Open Food Facts is a collaborative, free, and open database of food products from around the world.
+Data provided under the Open Database License (ODbL) and Creative Commons Attribution-ShareAlike 4.0.
+
+Usage Guidelines:
+- Attribute Open Food Facts in any public-facing interface.
+- Share improvements and derived databases under the same license.
+- Respect the community terms of service: https://world.openfoodfacts.org/terms-of-use
+
+NutriScan queries the API to retrieve nutritional facts and ingredient lists for scanned products.
+""",
+            website: URL(string: "https://world.openfoodfacts.org/")
+        ),
+        AcknowledgementItem(
             title: "LevelDB",
             summary: "Key–value storage used by Firebase caching. BSD 3-Clause License.",
             detail: """
