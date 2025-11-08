@@ -103,6 +103,21 @@ class AppPreferencesViewController: UIViewController {
         return stack
     }()
     
+    private let acknowledgementsButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.setTitle("📚 Acknowledgements & Licenses", for: .normal)
+        button.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .medium)
+        button.backgroundColor = .systemBackground
+        button.layer.cornerRadius = 12
+        button.layer.borderWidth = 1
+        button.layer.borderColor = UIColor.systemGray5.cgColor
+        button.contentEdgeInsets = UIEdgeInsets(top: 16, left: 16, bottom: 16, right: 16)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setTitleColor(.label, for: .normal)
+        button.contentHorizontalAlignment = .leading
+        return button
+    }()
+    
     // Action Buttons
     private let saveButton: UIButton = {
         let button = UIButton(type: .system)
@@ -152,6 +167,7 @@ class AppPreferencesViewController: UIViewController {
         
         contentView.addSubview(themeSectionView)
         contentView.addSubview(mealTimesSectionView)
+        contentView.addSubview(acknowledgementsButton)
         contentView.addSubview(saveButton)
         contentView.addSubview(resetButton)
         
@@ -221,7 +237,11 @@ class AppPreferencesViewController: UIViewController {
             mealTimesStackView.bottomAnchor.constraint(equalTo: mealTimesSectionView.bottomAnchor, constant: -16),
             
             // Action buttons
-            saveButton.topAnchor.constraint(equalTo: mealTimesSectionView.bottomAnchor, constant: 30),
+            acknowledgementsButton.topAnchor.constraint(equalTo: mealTimesSectionView.bottomAnchor, constant: 20),
+            acknowledgementsButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            acknowledgementsButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            
+            saveButton.topAnchor.constraint(equalTo: acknowledgementsButton.bottomAnchor, constant: 30),
             saveButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             saveButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             saveButton.heightAnchor.constraint(equalToConstant: 50),
@@ -302,6 +322,7 @@ class AppPreferencesViewController: UIViewController {
     private func setupActions() {
         saveButton.addTarget(self, action: #selector(saveButtonTapped), for: .touchUpInside)
         resetButton.addTarget(self, action: #selector(resetButtonTapped), for: .touchUpInside)
+        acknowledgementsButton.addTarget(self, action: #selector(acknowledgementsButtonTapped), for: .touchUpInside)
         
         themeSegmentedControl.addTarget(self, action: #selector(themeChanged), for: .valueChanged)
     }
@@ -390,6 +411,11 @@ class AppPreferencesViewController: UIViewController {
         })
         
         present(alert, animated: true)
+    }
+    
+    @objc private func acknowledgementsButtonTapped() {
+        let acknowledgementsVC = AcknowledgementsViewController(style: .insetGrouped)
+        navigationController?.pushViewController(acknowledgementsVC, animated: true)
     }
     
     @objc private func themeChanged() {
