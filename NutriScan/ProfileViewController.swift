@@ -87,7 +87,7 @@ class ProfileViewController: UIViewController, TimePickerDelegate {
         
         // Create notification button
         let notificationButton = UIButton(type: .system)
-        notificationButton.setTitle("🔔 Meal Reminders", for: .normal)
+        notificationButton.setTitle("Meal Reminders", for: .normal)
         notificationButton.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .medium)
         notificationButton.backgroundColor = .systemBlue
         notificationButton.setTitleColor(.white, for: .normal)
@@ -106,12 +106,20 @@ class ProfileViewController: UIViewController, TimePickerDelegate {
         
         // Create app preferences button
         let preferencesButton = UIButton(type: .system)
-        preferencesButton.setTitle("⚙️ App Preferences", for: .normal)
+        preferencesButton.setTitle("App Preferences", for: .normal)
         preferencesButton.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .medium)
         preferencesButton.backgroundColor = .systemGray6
         preferencesButton.layer.cornerRadius = 8
         preferencesButton.translatesAutoresizingMaskIntoConstraints = false
         preferencesButton.addTarget(self, action: #selector(preferencesButtonTapped), for: .touchUpInside)
+        
+        let acknowledgementsButton = UIButton(type: .system)
+        acknowledgementsButton.setTitle("Acknowledgements", for: .normal)
+        acknowledgementsButton.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .medium)
+        acknowledgementsButton.backgroundColor = .systemGray6
+        acknowledgementsButton.layer.cornerRadius = 8
+        acknowledgementsButton.translatesAutoresizingMaskIntoConstraints = false
+        acknowledgementsButton.addTarget(self, action: #selector(acknowledgementsButtonTapped), for: .touchUpInside)
         
         // Create logout button
         let logoutButton = UIButton(type: .system)
@@ -131,6 +139,7 @@ class ProfileViewController: UIViewController, TimePickerDelegate {
         view.addSubview(notificationButton)
         view.addSubview(goalsButton)
         view.addSubview(preferencesButton)
+        view.addSubview(acknowledgementsButton)
         view.addSubview(logoutButton)
         
         NSLayoutConstraint.activate([
@@ -171,7 +180,12 @@ class ProfileViewController: UIViewController, TimePickerDelegate {
             preferencesButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             preferencesButton.heightAnchor.constraint(equalToConstant: 44),
             
-            logoutButton.topAnchor.constraint(equalTo: preferencesButton.bottomAnchor, constant: 40),
+            acknowledgementsButton.topAnchor.constraint(equalTo: preferencesButton.bottomAnchor, constant: 16),
+            acknowledgementsButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            acknowledgementsButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            acknowledgementsButton.heightAnchor.constraint(equalToConstant: 44),
+            
+            logoutButton.topAnchor.constraint(equalTo: acknowledgementsButton.bottomAnchor, constant: 40),
             logoutButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             logoutButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             logoutButton.heightAnchor.constraint(equalToConstant: 50)
@@ -300,6 +314,13 @@ class ProfileViewController: UIViewController, TimePickerDelegate {
     @objc private func settingsButtonTappedOriginal() {
         let settingsVC = ProfileSettingsViewController()
         let navController = UINavigationController(rootViewController: settingsVC)
+        present(navController, animated: true)
+    }
+    
+    @objc private func acknowledgementsButtonTapped() {
+        let acknowledgementsVC = AcknowledgementsViewController(style: .insetGrouped)
+        let navController = UINavigationController(rootViewController: acknowledgementsVC)
+        navController.modalPresentationStyle = .formSheet
         present(navController, animated: true)
     }
     
