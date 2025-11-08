@@ -1,6 +1,6 @@
 # NutriScan
 
-NutriScan is an iOS application developed for FIT3178 Assessment 4. It helps health-conscious users scan packaged foods, log meals, and receive personalised nutrition insights powered by Firebase and the Open Food Facts API.
+NutriScan is an iOS application developed for students and young adults who need a fast, mobile-first way to understand nutritional intake. It helps health-conscious users scan packaged foods, log meals, and receive personalised nutrition insights powered by Firebase and the Open Food Facts API.
 
 _Last updated: 8 November 2025_
 
